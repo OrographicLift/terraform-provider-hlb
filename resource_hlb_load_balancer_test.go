@@ -1,10 +1,10 @@
-// File: resource_hlb_load_balancer_test.go
 package main
 
 import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
 
 func TestAccHLBLoadBalancer_basic(t *testing.T) {

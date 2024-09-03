@@ -1,4 +1,3 @@
-// File: provider_test.go
 package main
 
 import (
@@ -22,10 +21,6 @@ func TestProvider(t *testing.T) {
 	if err := Provider().InternalValidate(); err != nil {
 		t.Fatalf("err: %s", err)
 	}
-}
-
-func TestProvider_impl(t *testing.T) {
-	var _ *schema.Provider = Provider()
 }
 
 func testAccPreCheck(t *testing.T) {
