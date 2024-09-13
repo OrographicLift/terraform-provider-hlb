@@ -1,28 +1,48 @@
-# File: Makefile
-
-GOOS := $(shell go env GOOS)
-GOARCH := $(shell go env GOARCH)
 VERSION := 1.0.0
+HOSTNAME := registry.terraform.io
+NAMESPACE := zonehero.io
+NAME := hlb
+BINARY := terraform-provider-${NAME}
+OS := $(shell go env GOOS)
+ARCH := $(shell go env GOARCH)
+LOCAL_PROVIDER_DIR := ~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS}_${ARCH}
+
+.PHONY: build install clean
 
 default: build
 
-.PHONY: build
 build:
-	go build -o terraform-provider-hlb_v$(VERSION)
+	go build -o ${BINARY}_v${VERSION}
 
-.PHONY: install
 install: build
-	mkdir -p ~/.terraform.d/plugins/$(HOSTNAME)/hlb/$(VERSION)/$(GOOS)_$(GOARCH)
-	mv terraform-provider-hlb_v$(VERSION) ~/.terraform.d/plugins/$(HOSTNAME)/hlb/$(VERSION)/$(GOOS)_$(GOARCH)/
+	@mkdir -p ${LOCAL_PROVIDER_DIR}
+	mv ${BINARY}_v${VERSION} ${LOCAL_PROVIDER_DIR}/${BINARY}_v${VERSION}
 
-.PHONY: test
-test:
-	go test -v ./...
-
-.PHONY: testacc
-testacc:
-	TF_ACC=1 go test -v ./... -timeout 120m
-
-.PHONY: clean
 clean:
-	rm -f terraform-provider-hlb_v$(VERSION)
+	rm -f ${BINARY}_v${VERSION}
+	rm -rf ${LOCAL_PROVIDER_DIR}
+
+test:
+	go test ./... -v
+
+# Optional: Run tests with race condition checking
+test-race:
+	go test -race ./... -v
+
+# Optional: Run only quick tests (useful for rapid development cycles)
+test-short:
+	go test ./... -v -short
+
+# Optional: Check for formatting issues
+fmt:
+	go fmt ./...
+
+# Optional: Run linter
+lint:
+	golangci-lint run
+
+# Optional: Generate documentation
+docs:
+	go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs
+
+.PHONY: test test-race test-short fmt lint docs
