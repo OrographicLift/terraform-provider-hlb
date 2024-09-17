@@ -18,7 +18,7 @@ import (
 
 const (
 	defaultMaxRetries = 5
-	defaultBaseURL    = "https://lb.%s.dev.orographic.com/v1"
+	defaultBaseURL    = "https://35c3enokvg.execute-api.%s.amazonaws.com/prod/v1"
 )
 
 type Client struct {

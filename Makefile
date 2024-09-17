@@ -1,6 +1,6 @@
 VERSION := 1.0.0
 HOSTNAME := registry.terraform.io
-NAMESPACE := zonehero.io
+NAMESPACE := zonehero
 NAME := hlb
 BINARY := terraform-provider-${NAME}
 OS := $(shell go env GOOS)

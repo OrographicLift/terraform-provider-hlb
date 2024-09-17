@@ -184,7 +184,11 @@ func resourceHLBLoadBalancerRead(ctx context.Context, d *schema.ResourceData, me
 	d.Set("internal", lb.Internal)
 	d.Set("subnets", lb.Subnets)
 	d.Set("security_groups", lb.SecurityGroups)
-	d.Set("access_logs", flattenAccessLogs(&lb.AccessLogs))
+	if lb.AccessLogs != nil {
+		d.Set("access_logs", []interface{}{flattenAccessLogs(lb.AccessLogs)})
+	} else {
+		d.Set("access_logs", nil)
+	}
 	d.Set("enable_deletion_protection", lb.EnableDeletionProtection)
 	d.Set("enable_http2", lb.EnableHttp2)
 	d.Set("idle_timeout", lb.IdleTimeout)

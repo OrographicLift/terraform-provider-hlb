@@ -9,6 +9,7 @@ import (
 
 type LoadBalancer struct {
 	ID                           string            `json:"id"`
+    AccountID                    string            `json:"accountId"`
 	URI                          string            `json:"uri"`
 	Name                         string            `json:"name"`
 	Internal                     bool              `json:"internal"`
@@ -19,7 +20,7 @@ type LoadBalancer struct {
 	UpdatedAt                    string            `json:"updatedAt"`
 	Subnets                      []string          `json:"subnets"`
 	SecurityGroups               []string          `json:"securityGroups"`
-	AccessLogs                   AccessLogs        `json:"accessLogs"`
+	AccessLogs                   *AccessLogs       `json:"accessLogs,omitempty"`
 	EnableDeletionProtection     bool              `json:"enableDeletionProtection"`
 	EnableHttp2                  bool              `json:"enableHttp2"`
 	IdleTimeout                  int               `json:"idleTimeout"`
