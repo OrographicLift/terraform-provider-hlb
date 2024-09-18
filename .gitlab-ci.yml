@@ -1,0 +1,33 @@
+image: golang:1.23
+
+variables:
+  GOPATH: $CI_PROJECT_DIR/.go
+
+cache:
+  paths:
+    - .go/pkg/mod/
+
+stages:
+  - build
+  - test
+
+before_script:
+  - mkdir -p .go
+  - go mod download
+
+unit_tests:
+  stage: test
+  tags:
+    - aws
+  script:
+    - go test -v $(go list ./... | grep -v /vendor/)
+
+build:
+  stage: build
+  tags:
+    - aws
+  script:
+    - go build -o terraform-provider-hlb
+  artifacts:
+    paths:
+      - terraform-provider-hlb
