@@ -1,6 +1,7 @@
 package hlb
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -35,8 +36,8 @@ type UpdateListenerInput struct {
 	ALPNPolicy            *string `json:"alpnPolicy,omitempty"`
 }
 
-func (c *Client) CreateListener(loadBalancerID string, input *CreateListenerInput) (*Listener, error) {
-	resp, err := c.sendRequest("POST", fmt.Sprintf("/aws_account/%s/load-balancers/%s/listeners", c.accountID, loadBalancerID), input)
+func (c *Client) CreateListener(ctx context.Context, loadBalancerID string, input *CreateListenerInput) (*Listener, error) {
+	resp, err := c.sendRequest(ctx, "POST", fmt.Sprintf("/aws_account/%s/load-balancers/%s/listeners", c.accountID, loadBalancerID), input)
 	if err != nil {
 		return nil, err
 	}
@@ -50,8 +51,8 @@ func (c *Client) CreateListener(loadBalancerID string, input *CreateListenerInpu
 	return &listener, nil
 }
 
-func (c *Client) GetListener(loadBalancerID, listenerID string) (*Listener, error) {
-	resp, err := c.sendRequest("GET", fmt.Sprintf("/aws_account/%s/load-balancers/%s/listeners/%s", c.accountID, loadBalancerID, listenerID), nil)
+func (c *Client) GetListener(ctx context.Context, loadBalancerID, listenerID string) (*Listener, error) {
+	resp, err := c.sendRequest(ctx, "GET", fmt.Sprintf("/aws_account/%s/load-balancers/%s/listeners/%s", c.accountID, loadBalancerID, listenerID), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -65,8 +66,8 @@ func (c *Client) GetListener(loadBalancerID, listenerID string) (*Listener, erro
 	return &listener, nil
 }
 
-func (c *Client) UpdateListener(loadBalancerID, listenerID string, input *UpdateListenerInput) (*Listener, error) {
-	resp, err := c.sendRequest("PUT", fmt.Sprintf("/aws_account/%s/load-balancers/%s/listeners/%s", c.accountID, loadBalancerID, listenerID), input)
+func (c *Client) UpdateListener(ctx context.Context, loadBalancerID, listenerID string, input *UpdateListenerInput) (*Listener, error) {
+	resp, err := c.sendRequest(ctx, "PUT", fmt.Sprintf("/aws_account/%s/load-balancers/%s/listeners/%s", c.accountID, loadBalancerID, listenerID), input)
 	if err != nil {
 		return nil, err
 	}
@@ -80,18 +81,18 @@ func (c *Client) UpdateListener(loadBalancerID, listenerID string, input *Update
 	return &listener, nil
 }
 
-func (c *Client) DeleteListener(loadBalancerID, listenerID string) error {
-	_, err := c.sendRequest("DELETE", fmt.Sprintf("/aws_account/%s/load-balancers/%s/listeners/%s", c.accountID, loadBalancerID, listenerID), nil)
+func (c *Client) DeleteListener(ctx context.Context, loadBalancerID, listenerID string) error {
+	_, err := c.sendRequest(ctx, "DELETE", fmt.Sprintf("/aws_account/%s/load-balancers/%s/listeners/%s", c.accountID, loadBalancerID, listenerID), nil)
 	return err
 }
 
-func (c *Client) ListListeners(loadBalancerID string, limit int, nextToken string) ([]Listener, string, error) {
+func (c *Client) ListListeners(ctx context.Context, loadBalancerID string, limit int, nextToken string) ([]Listener, string, error) {
 	url := fmt.Sprintf("/aws_account/%s/load-balancers/%s/listeners?limit=%d", c.accountID, loadBalancerID, limit)
 	if nextToken != "" {
 		url += fmt.Sprintf("&nextToken=%s", nextToken)
 	}
 
-	resp, err := c.sendRequest("GET", url, nil)
+	resp, err := c.sendRequest(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, "", err
 	}

@@ -64,7 +64,7 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	}
 
 	// Create the HLB client
-	client, err := hlb.NewClient(apiKey, awsCfg)
+	client, err := hlb.NewClient(ctx, apiKey, awsCfg)
 	if err != nil {
 		return nil, diag.FromErr(fmt.Errorf("error creating HLB client: %v", err))
 	}

@@ -65,7 +65,7 @@ func resourceHLBListenerAttachmentCreate(ctx context.Context, d *schema.Resource
 	}
 
 	loadBalancerID := d.Get("load_balancer_id").(string)
-	listener, err := client.CreateListener(loadBalancerID, input)
+	listener, err := client.CreateListener(ctx, loadBalancerID, input)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -78,7 +78,7 @@ func resourceHLBListenerAttachmentRead(ctx context.Context, d *schema.ResourceDa
 	client := meta.(*hlb.Client)
 
 	loadBalancerID := d.Get("load_balancer_id").(string)
-	listener, err := client.GetListener(loadBalancerID, d.Id())
+	listener, err := client.GetListener(ctx, loadBalancerID, d.Id())
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -119,7 +119,7 @@ func resourceHLBListenerAttachmentUpdate(ctx context.Context, d *schema.Resource
 	}
 
 	loadBalancerID := d.Get("load_balancer_id").(string)
-	_, err := client.UpdateListener(loadBalancerID, d.Id(), input)
+	_, err := client.UpdateListener(ctx, loadBalancerID, d.Id(), input)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -131,7 +131,7 @@ func resourceHLBListenerAttachmentDelete(ctx context.Context, d *schema.Resource
 	client := meta.(*hlb.Client)
 
 	loadBalancerID := d.Get("load_balancer_id").(string)
-	err := client.DeleteListener(loadBalancerID, d.Id())
+	err := client.DeleteListener(ctx, loadBalancerID, d.Id())
 	if err != nil {
 		return diag.FromErr(err)
 	}

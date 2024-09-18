@@ -3,6 +3,7 @@
 package hlb
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 )
@@ -56,8 +57,8 @@ type CreateLoadBalancerInput struct {
 	Tags                         map[string]string `json:"tags,omitempty"`
 }
 
-func (c *Client) CreateLoadBalancer(input *CreateLoadBalancerInput) (*LoadBalancer, error) {
-	resp, err := c.sendRequest("POST", fmt.Sprintf("/aws_account/%s/load-balancers", c.accountID), input)
+func (c *Client) CreateLoadBalancer(ctx context.Context, input *CreateLoadBalancerInput) (*LoadBalancer, error) {
+	resp, err := c.sendRequest(ctx, "POST", fmt.Sprintf("/aws_account/%s/load-balancers", c.accountID), input)
 	if err != nil {
 		return nil, err
 	}
@@ -71,8 +72,8 @@ func (c *Client) CreateLoadBalancer(input *CreateLoadBalancerInput) (*LoadBalanc
 	return &lb, nil
 }
 
-func (c *Client) GetLoadBalancer(loadBalancerID string) (*LoadBalancer, error) {
-	resp, err := c.sendRequest("GET", fmt.Sprintf("/aws_account/%s/load-balancers/%s", c.accountID, loadBalancerID), nil)
+func (c *Client) GetLoadBalancer(ctx context.Context, loadBalancerID string) (*LoadBalancer, error) {
+	resp, err := c.sendRequest(ctx, "GET", fmt.Sprintf("/aws_account/%s/load-balancers/%s", c.accountID, loadBalancerID), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -100,8 +101,8 @@ type UpdateLoadBalancerInput struct {
     Tags                         map[string]string
 }
 
-func (c *Client) UpdateLoadBalancer(loadBalancerID string, input *UpdateLoadBalancerInput) (*LoadBalancer, error) {
-	resp, err := c.sendRequest("PUT", fmt.Sprintf("/aws_account/%s/load-balancers/%s", c.accountID, loadBalancerID), input)
+func (c *Client) UpdateLoadBalancer(ctx context.Context, loadBalancerID string, input *UpdateLoadBalancerInput) (*LoadBalancer, error) {
+	resp, err := c.sendRequest(ctx, "PUT", fmt.Sprintf("/aws_account/%s/load-balancers/%s", c.accountID, loadBalancerID), input)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +116,7 @@ func (c *Client) UpdateLoadBalancer(loadBalancerID string, input *UpdateLoadBala
 	return &lb, nil
 }
 
-func (c *Client) DeleteLoadBalancer(loadBalancerID string) error {
-	_, err := c.sendRequest("DELETE", fmt.Sprintf("/aws_account/%s/load-balancers/%s", c.accountID, loadBalancerID), nil)
+func (c *Client) DeleteLoadBalancer(ctx context.Context, loadBalancerID string) error {
+	_, err := c.sendRequest(ctx, "DELETE", fmt.Sprintf("/aws_account/%s/load-balancers/%s", c.accountID, loadBalancerID), nil)
 	return err
 }

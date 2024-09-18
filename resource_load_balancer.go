@@ -162,7 +162,7 @@ func resourceHLBLoadBalancerCreate(ctx context.Context, d *schema.ResourceData, 
 		Tags:                         expandTags(d.Get("tags").(map[string]interface{})),
 	}
 
-	lb, err := client.CreateLoadBalancer(input)
+	lb, err := client.CreateLoadBalancer(ctx, input)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -175,7 +175,7 @@ func resourceHLBLoadBalancerCreate(ctx context.Context, d *schema.ResourceData, 
 func resourceHLBLoadBalancerRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*hlb.Client)
 
-	lb, err := client.GetLoadBalancer(d.Id())
+	lb, err := client.GetLoadBalancer(ctx, d.Id())
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -250,7 +250,7 @@ func resourceHLBLoadBalancerUpdate(ctx context.Context, d *schema.ResourceData, 
 		input.XffHeaderProcessingMode = &v
 	}
 
-	_, err := client.UpdateLoadBalancer(d.Id(), input)
+	_, err := client.UpdateLoadBalancer(ctx, d.Id(), input)
 	if err != nil {
 		return diag.FromErr(err)
 	}
@@ -261,7 +261,7 @@ func resourceHLBLoadBalancerUpdate(ctx context.Context, d *schema.ResourceData, 
 func resourceHLBLoadBalancerDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*hlb.Client)
 
-	err := client.DeleteLoadBalancer(d.Id())
+	err := client.DeleteLoadBalancer(ctx, d.Id())
 	if err != nil {
 		return diag.FromErr(err)
 	}
