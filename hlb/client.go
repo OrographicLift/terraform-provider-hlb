@@ -17,7 +17,7 @@ import (
 
 const (
 	defaultMaxRetries = 5
-	defaultBaseURL    = "https://hlb.%s.aws-dev.zonehero.cloud/prod/v1"
+	defaultBaseURL    = "https://hlb.%s.aws-dev.zonehero.cloud/v1"
 )
 
 type Client struct {
