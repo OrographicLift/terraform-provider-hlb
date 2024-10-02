@@ -8,32 +8,35 @@ import (
 )
 
 type Listener struct {
-	ID                    string    `json:"id"`
-	URI                   string    `json:"uri"`
-	LoadBalancerID        string    `json:"loadBalancerId"`
-	Port                  int       `json:"port"`
-	Protocol              string    `json:"protocol"`
-	TargetGroupARN        string    `json:"targetGroupArn"`
-	CertificateSecretsARN string    `json:"certificateSecretsArn,omitempty"`
-	ALPNPolicy            string    `json:"alpnPolicy,omitempty"`
-	CreatedAt             time.Time `json:"createdAt"`
-	UpdatedAt             time.Time `json:"updatedAt"`
+	ID                        string    `json:"id"`
+	URI                       string    `json:"uri"`
+	LoadBalancerID            string    `json:"loadBalancerId"`
+	Port                      int       `json:"port"`
+	Protocol                  string    `json:"protocol"`
+	TargetGroupARN            string    `json:"targetGroupArn"`
+	CertificateSecretsARN     string    `json:"certificateSecretsArn,omitempty"`
+	ALPNPolicy                string    `json:"alpnPolicy,omitempty"`
+	EnableDeletionProtection  bool      `json:"enableDeletionProtection"`
+	CreatedAt                 time.Time `json:"createdAt"`
+	UpdatedAt                 time.Time `json:"updatedAt"`
 }
 
 type CreateListenerInput struct {
-	Port                  int    `json:"port"`
-	Protocol              string `json:"protocol"`
-	TargetGroupARN        string `json:"targetGroupArn"`
-	CertificateSecretsARN string `json:"certificateSecretsArn,omitempty"`
-	ALPNPolicy            string `json:"alpnPolicy,omitempty"`
+	Port                      int    `json:"port"`
+	Protocol                  string `json:"protocol"`
+	TargetGroupARN            string `json:"targetGroupArn"`
+	CertificateSecretsARN     string `json:"certificateSecretsArn,omitempty"`
+	ALPNPolicy                string `json:"alpnPolicy,omitempty"`
+	EnableDeletionProtection  bool   `json:"enableDeletionProtection"`
 }
 
 type UpdateListenerInput struct {
-	Port                  *int    `json:"port,omitempty"`
-	Protocol              *string `json:"protocol,omitempty"`
-	TargetGroupARN        *string `json:"targetGroupArn,omitempty"`
-	CertificateSecretsARN *string `json:"certificateSecretsArn,omitempty"`
-	ALPNPolicy            *string `json:"alpnPolicy,omitempty"`
+	Port                      *int    `json:"port,omitempty"`
+	Protocol                  *string `json:"protocol,omitempty"`
+	TargetGroupARN            *string `json:"targetGroupArn,omitempty"`
+	CertificateSecretsARN     *string `json:"certificateSecretsArn,omitempty"`
+	ALPNPolicy                *string `json:"alpnPolicy,omitempty"`
+	EnableDeletionProtection  *bool   `json:"enableDeletionProtection"`
 }
 
 func (c *Client) CreateListener(ctx context.Context, loadBalancerID string, input *CreateListenerInput) (*Listener, error) {

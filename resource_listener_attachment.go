@@ -49,6 +49,11 @@ func resourceHLBListenerAttachment() *schema.Resource {
 					"HTTP1Only", "HTTP2Only", "HTTP2Optional", "HTTP2Preferred", "None",
 				}, false),
 			},
+			"enable_deletion_protection": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
+			},
 		},
 	}
 }
@@ -57,11 +62,12 @@ func resourceHLBListenerAttachmentCreate(ctx context.Context, d *schema.Resource
 	client := meta.(*hlb.Client)
 
 	input := &hlb.CreateListenerInput{
-		Port:                  d.Get("port").(int),
-		Protocol:              d.Get("protocol").(string),
-		TargetGroupARN:        d.Get("target_group_arn").(string),
-		CertificateSecretsARN: d.Get("certificate_secrets_arn").(string),
-		ALPNPolicy:            d.Get("alpn_policy").(string),
+		Port:                     d.Get("port").(int),
+		Protocol:                 d.Get("protocol").(string),
+		TargetGroupARN:           d.Get("target_group_arn").(string),
+		CertificateSecretsARN:    d.Get("certificate_secrets_arn").(string),
+		ALPNPolicy:               d.Get("alpn_policy").(string),
+		EnableDeletionProtection: d.Get("enable_deletion_protection").(bool),
 	}
 
 	loadBalancerID := d.Get("load_balancer_id").(string)
@@ -88,6 +94,7 @@ func resourceHLBListenerAttachmentRead(ctx context.Context, d *schema.ResourceDa
 	d.Set("target_group_arn", listener.TargetGroupARN)
 	d.Set("certificate_secrets_arn", listener.CertificateSecretsARN)
 	d.Set("alpn_policy", listener.ALPNPolicy)
+	d.Set("enable_deletion_protection", listener.EnableDeletionProtection)
 
 	return nil
 }
@@ -116,6 +123,11 @@ func resourceHLBListenerAttachmentUpdate(ctx context.Context, d *schema.Resource
 	if d.HasChange("alpn_policy") {
 		input.ALPNPolicy = new(string)
 		*input.ALPNPolicy = d.Get("alpn_policy").(string)
+	}
+
+	if d.HasChange("enable_deletion_protection") {
+		v := d.Get("enable_deletion_protection").(bool)
+		input.EnableDeletionProtection = &v
 	}
 
 	loadBalancerID := d.Get("load_balancer_id").(string)
