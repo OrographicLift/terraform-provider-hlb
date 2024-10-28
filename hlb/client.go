@@ -61,7 +61,7 @@ func (c *Client) GetAccountID() string {
 
 func (c *Client) sendRequest(ctx context.Context, method, path string, body interface{}) (*http.Response, error) {
 	url := fmt.Sprintf("%s%s", c.baseURL, path)
-	
+
 	XSTSGCIHeaders, err := getSCDIHeader(ctx, c.awsConfig, c.credentials)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate API credentials: %w", err)
