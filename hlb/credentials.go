@@ -9,27 +9,30 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	ini "gopkg.in/ini.v1"
 )
 
 const (
-	credentialsDir  = ".hlb"
-	credentialsFile = "credentials"
-	defaultSection  = "default"
-	expiryDuration  = 15 * time.Minute
+	credentialsDir   = ".hlb"
+	credentialsFile  = "credentials"
+	defaultSection   = "default"
+	expiryDuration   = 15 * time.Minute
+	hlbAdminUserRole = "arn:aws:iam::%s:role/hlb/hlb-admin-users-role"
 )
 
 type Credentials struct {
-	APIKey           string
-	XSTSGCIHeaders   string
-	Expiry           time.Time
-	AccountID        string
+	APIKey         string
+	XSTSGCIHeaders string
+	Expiry         time.Time
+	AccountID      string
 }
 
 func getSCDIHeader(ctx context.Context, cfg aws.Config, credentials *Credentials) (string, error) {
 	if time.Now().After(credentials.Expiry) {
-		headers, err := generateSTSHeaders(ctx, cfg)
+		headers, err := generateSTSHeaders(ctx, cfg, credentials.AccountID)
 		if err != nil {
 			return "", fmt.Errorf("failed to generate STS headers: %w", err)
 		}
@@ -37,7 +40,7 @@ func getSCDIHeader(ctx context.Context, cfg aws.Config, credentials *Credentials
 		credentials.XSTSGCIHeaders = headers
 		credentials.Expiry = time.Now().Add(expiryDuration)
 
-		if err := saveCredentials(credentials); err != nil {
+		if err := saveCredentials(credentials, cfg.Region); err != nil {
 			return "", fmt.Errorf("failed to save credentials: %w", err)
 		}
 	}
@@ -47,7 +50,7 @@ func getSCDIHeader(ctx context.Context, cfg aws.Config, credentials *Credentials
 func loadOrCreateCredentials(ctx context.Context, apiKey string, cfg aws.Config) (*Credentials, error) {
 	var credentials *Credentials
 	var accountID string
-	credentials, err := loadCredentials(apiKey)
+	credentials, err := loadCredentials(apiKey, cfg.Region)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +63,7 @@ func loadOrCreateCredentials(ctx context.Context, apiKey string, cfg aws.Config)
 		}
 		accountID = *result.Account
 
-		headers, err := generateSTSHeaders(ctx, cfg)
+		headers, err := generateSTSHeaders(ctx, cfg, accountID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate STS headers: %w", err)
 		}
@@ -70,14 +73,14 @@ func loadOrCreateCredentials(ctx context.Context, apiKey string, cfg aws.Config)
 			Expiry:         time.Now().Add(expiryDuration),
 			AccountID:      accountID,
 		}
-		if err := saveCredentials(credentials); err != nil {
+		if err := saveCredentials(credentials, cfg.Region); err != nil {
 			return nil, fmt.Errorf("failed to save credentials: %w", err)
 		}
 	}
 	return credentials, nil
 }
 
-func loadCredentials(apiKey string) (*Credentials, error) {
+func loadCredentials(apiKey, region string) (*Credentials, error) {
 	credPath := getCredentialsPath()
 	cfg, err := ini.Load(credPath)
 	if err != nil {
@@ -88,20 +91,22 @@ func loadCredentials(apiKey string) (*Credentials, error) {
 	}
 
 	section := cfg.Section(apiKey)
-	if section == nil || section.Key("account_id").String() == "" || section.Key("x_sts_gci_headers").String() == "" {
+	headerKey := fmt.Sprintf("%s_x_sts_gci_headers", region)
+	expiryKey := fmt.Sprintf("%s_expiry", region)
+	if section == nil || section.Key("account_id").String() == "" || section.Key(headerKey).String() == "" {
 		return nil, nil
 	}
 
-	expiry, _ := time.Parse(time.RFC3339, section.Key("expiry").String())
+	expiry, _ := time.Parse(time.RFC3339, section.Key(expiryKey).String())
 	return &Credentials{
 		APIKey:         apiKey,
-		XSTSGCIHeaders: section.Key("x_sts_gci_headers").String(),
+		XSTSGCIHeaders: section.Key(headerKey).String(),
 		Expiry:         expiry,
 		AccountID:      section.Key("account_id").String(),
 	}, nil
 }
 
-func saveCredentials(creds *Credentials) error {
+func saveCredentials(creds *Credentials, region string) error {
 	credPath := getCredentialsPath()
 	cfg, err := ini.Load(credPath)
 	if err != nil {
@@ -116,9 +121,10 @@ func saveCredentials(creds *Credentials) error {
 	if err != nil {
 		return fmt.Errorf("failed to create section in credentials file: %w", err)
 	}
-
-	section.NewKey("x_sts_gci_headers", creds.XSTSGCIHeaders)
-	section.NewKey("expiry", creds.Expiry.Format(time.RFC3339))
+	headerKey := fmt.Sprintf("%s_x_sts_gci_headers", region)
+	expiryKey := fmt.Sprintf("%s_expiry", region)
+	section.NewKey(headerKey, creds.XSTSGCIHeaders)
+	section.NewKey(expiryKey, creds.Expiry.Format(time.RFC3339))
 	section.NewKey("account_id", creds.AccountID)
 
 	if err := ensureCredentialsDir(); err != nil {
@@ -136,10 +142,48 @@ func getCredentialsPath() string {
 	return filepath.Join(homeDir, credentialsDir, credentialsFile)
 }
 
-func generateSTSHeaders(ctx context.Context, cfg aws.Config) (string, error) {
+func getSTSClient(ctx context.Context, cfg aws.Config, accountID string) (*sts.Client, error) {
 	stsClient := sts.NewFromConfig(cfg)
 
-	presigner := sts.NewPresignClient(stsClient)
+	// Assume the hlbAdminUserRole
+	roleARN := fmt.Sprintf(hlbAdminUserRole, accountID)
+	assumeRoleInput := &sts.AssumeRoleInput{
+		RoleArn:         aws.String(roleARN),
+		RoleSessionName: aws.String("HLBTerraformProviderSession"),
+	}
+
+	assumeRoleOutput, err := stsClient.AssumeRole(ctx, assumeRoleInput)
+	if err != nil {
+		return nil, fmt.Errorf("failed to assume role: %w", err)
+	}
+
+	assumedCredentialsProvider := credentials.NewStaticCredentialsProvider(
+		*assumeRoleOutput.Credentials.AccessKeyId,
+		*assumeRoleOutput.Credentials.SecretAccessKey, 
+		*assumeRoleOutput.Credentials.SessionToken)
+
+	// Create a new config with the assumed role credentials
+	assumedConfig, err := config.LoadDefaultConfig(ctx,
+		config.WithCredentialsProvider(assumedCredentialsProvider),
+		config.WithRegion(cfg.Region),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create assumed role config: %w", err)
+	}
+
+	// Create a new STS client with the assumed role credentials
+	assumedSTSClient := sts.NewFromConfig(assumedConfig)
+
+	return assumedSTSClient, nil
+}
+
+func generateSTSHeaders(ctx context.Context, cfg aws.Config, accountID string) (string, error) {
+	assumedSTSClient, err := getSTSClient(ctx, cfg, accountID)
+	if err != nil {
+		return "", err
+	}
+
+	presigner := sts.NewPresignClient(assumedSTSClient)
 	presignedURL, err := presigner.PresignGetCallerIdentity(ctx, &sts.GetCallerIdentityInput{}, func(opts *sts.PresignOptions) {})
 	if err != nil {
 		return "", fmt.Errorf("failed to presign request: %w", err)
