@@ -1,2 +1,3 @@
 .aidigestignore
 test/*
+test-certbot/*
