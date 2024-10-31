@@ -38,7 +38,7 @@ func resourceHLBListenerAttachment() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"certificate_secrets_arn": {
+			"certificate_secrets_name": {
 				Type:     schema.TypeString,
 				Optional: true,
 			},
@@ -65,7 +65,7 @@ func resourceHLBListenerAttachmentCreate(ctx context.Context, d *schema.Resource
 		Port:                     d.Get("port").(int),
 		Protocol:                 d.Get("protocol").(string),
 		TargetGroupARN:           d.Get("target_group_arn").(string),
-		CertificateSecretsARN:    d.Get("certificate_secrets_arn").(string),
+		CertificateSecretsName:   d.Get("certificate_secrets_name").(string),
 		ALPNPolicy:               d.Get("alpn_policy").(string),
 		EnableDeletionProtection: d.Get("enable_deletion_protection").(bool),
 	}
@@ -92,7 +92,7 @@ func resourceHLBListenerAttachmentRead(ctx context.Context, d *schema.ResourceDa
 	d.Set("port", listener.Port)
 	d.Set("protocol", listener.Protocol)
 	d.Set("target_group_arn", listener.TargetGroupARN)
-	d.Set("certificate_secrets_arn", listener.CertificateSecretsARN)
+	d.Set("certificate_secrets_name", listener.CertificateSecretsName)
 	d.Set("alpn_policy", listener.ALPNPolicy)
 	d.Set("enable_deletion_protection", listener.EnableDeletionProtection)
 
@@ -116,9 +116,9 @@ func resourceHLBListenerAttachmentUpdate(ctx context.Context, d *schema.Resource
 		input.TargetGroupARN = new(string)
 		*input.TargetGroupARN = d.Get("target_group_arn").(string)
 	}
-	if d.HasChange("certificate_secrets_arn") {
-		input.CertificateSecretsARN = new(string)
-		*input.CertificateSecretsARN = d.Get("certificate_secrets_arn").(string)
+	if d.HasChange("certificate_secrets_name") {
+		input.CertificateSecretsName = new(string)
+		*input.CertificateSecretsName = d.Get("certificate_secrets_name").(string)
 	}
 	if d.HasChange("alpn_policy") {
 		input.ALPNPolicy = new(string)

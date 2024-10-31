@@ -9,55 +9,85 @@ import (
 )
 
 type LoadBalancer struct {
-	ID                           string            `json:"id"`
-    AccountID                    string            `json:"accountId"`
-	URI                          string            `json:"uri"`
-	Name                         string            `json:"name"`
-	Internal                     bool              `json:"internal"`
-	State                        string            `json:"state"`
-	DNSName                      string            `json:"dnsName"`
-	ZoneID                       string            `json:"zoneId"`
-	CreatedAt                    string            `json:"createdAt"`
-	UpdatedAt                    string            `json:"updatedAt"`
-	Subnets                      []string          `json:"subnets"`
-	SecurityGroups               []string          `json:"securityGroups"`
 	AccessLogs                   *AccessLogs       `json:"accessLogs,omitempty"`
+	ClientKeepAlive              int               `json:"clientKeepAlive"`
+	CreatedAt                    string            `json:"createdAt"`
+	DNSName                      string            `json:"dnsName"`
+	EnableCrossZoneLoadBalancing string            `json:"enableCrossZoneLoadBalancing"`
 	EnableDeletionProtection     bool              `json:"enableDeletionProtection"`
 	EnableHttp2                  bool              `json:"enableHttp2"`
+	ExpiresAt                    int               `json:"expiresAt"`
+	ID                           string            `json:"id"`
 	IdleTimeout                  int               `json:"idleTimeout"`
+	Internal                     bool              `json:"internal"`
 	IPAddressType                string            `json:"ipAddressType"`
+	Name                         string            `json:"name"`
 	PreserveHostHeader           bool              `json:"preserveHostHeader"`
-	EnableCrossZoneLoadBalancing string            `json:"enableCrossZoneLoadBalancing"`
-	ClientKeepAlive              int               `json:"clientKeepAlive"`
-	XffHeaderProcessingMode      string            `json:"xffHeaderProcessingMode"`
+	SecurityGroups               []string          `json:"securityGroups"`
+	State                        string            `json:"state"`
+	Subnets                      []string          `json:"subnets"`
 	Tags                         map[string]string `json:"tags"`
+	UpdatedAt                    string            `json:"updatedAt"`
+	URI                          string            `json:"uri"`
+	XffHeaderProcessingMode      string            `json:"xffHeaderProcessingMode"`
+	ZoneID                       string            `json:"zoneId"`
+	ZoneName                     string            `json:"zoneName"`
+    AccountID                    string            `json:"accountId"`
 }
 
 type AccessLogs struct {
+	Bucket  string `json:"bucket"`
 	Enabled bool   `json:"enabled"`
-	Bucket  string `json:"bucket,omitempty"`
-	Prefix  string `json:"prefix,omitempty"`
+	Prefix  string `json:"prefix"`
 }
 
-type CreateLoadBalancerInput struct {
-	Name                         string            `json:"name"`
-	NamePrefix                   string            `json:"namePrefix,omitempty"`
-	Internal                     bool              `json:"internal"`
-	Subnets                      []string          `json:"subnets"`
-	SecurityGroups               []string          `json:"securityGroups,omitempty"`
-	AccessLogs                   *AccessLogs       `json:"accessLogs,omitempty"`
+type LoadBalancerCreate struct {
+	AccessLogs                   *AccessLogs       `json:"accessLogs"`
+	ClientKeepAlive              int               `json:"clientKeepAlive"`
+	EnableCrossZoneLoadBalancing string            `json:"enableCrossZoneLoadBalancing"`
 	EnableDeletionProtection     bool              `json:"enableDeletionProtection"`
 	EnableHttp2                  bool              `json:"enableHttp2"`
-	IdleTimeout                  int               `json:"idleTimeout,omitempty"`
-	IPAddressType                string            `json:"ipAddressType,omitempty"`
+	IdleTimeout                  int               `json:"idleTimeout"`
+	Internal                     bool              `json:"internal"`
+	IPAddressType                string            `json:"ipAddressType"`
+	Name                         string            `json:"name"`
+	NamePrefix                   string            `json:"namePrefix"`
 	PreserveHostHeader           bool              `json:"preserveHostHeader"`
-	EnableCrossZoneLoadBalancing string            `json:"enableCrossZoneLoadBalancing,omitempty"`
-	ClientKeepAlive              int               `json:"clientKeepAlive,omitempty"`
-	XffHeaderProcessingMode      string            `json:"xffHeaderProcessingMode,omitempty"`
-	Tags                         map[string]string `json:"tags,omitempty"`
+	SecurityGroups               []string          `json:"securityGroups"`
+	Subnets                      []string          `json:"subnets"`
+	Tags                         map[string]string `json:"tags"`
+	XffHeaderProcessingMode      string            `json:"xffHeaderProcessingMode"`
+	ZoneID                       string            `json:"zoneId"`
+	ZoneName                     string            `json:"zoneName"`
 }
 
-func (c *Client) CreateLoadBalancer(ctx context.Context, input *CreateLoadBalancerInput) (*LoadBalancer, error) {
+type LoadBalancerUpdate struct {
+	AccessLogs                 *AccessLogs        `json:"accessLogs"`
+	ClientKeepAlive            *int               `json:"clientKeepAlive"`
+	EnableCrossZoneLoadBalancing *string          `json:"enableCrossZoneLoadBalancing"`
+	EnableDeletionProtection   *bool              `json:"enableDeletionProtection"`
+	EnableHttp2                *bool              `json:"enableHttp2"`
+	IdleTimeout                *int               `json:"idleTimeout"`
+	Name                       *string            `json:"name"`
+	PreserveHostHeader         *bool              `json:"preserveHostHeader"`
+	SecurityGroups             []string           `json:"securityGroups"`
+	Tags                       *map[string]string `json:"tags"`
+	XffHeaderProcessingMode    *string            `json:"xffHeaderProcessingMode"`
+}
+
+const (
+	LBStatePendingCreation = "pending_creation"
+	LBStateCreating        = "creating"
+	LBStatePendingUpdate   = "pending_update"
+	LBStateUpdating        = "updating"
+	LBStatePendingDeletion = "pending_delete"
+	LBStateDeleting        = "deleting"
+	LBStateDeleted         = "deleted"
+	LBStateActive          = "active"
+	LBStateFailed          = "failed"
+)
+
+func (c *Client) CreateLoadBalancer(ctx context.Context, input *LoadBalancerCreate) (*LoadBalancer, error) {
 	resp, err := c.sendRequest(ctx, "POST", fmt.Sprintf("/aws_account/%s/load-balancers", c.accountID), input)
 	if err != nil {
 		return nil, err
@@ -87,21 +117,7 @@ func (c *Client) GetLoadBalancer(ctx context.Context, loadBalancerID string) (*L
 	return &lb, nil
 }
 
-type UpdateLoadBalancerInput struct {
-    Name                         string
-    SecurityGroups               []string
-    AccessLogs                   *AccessLogs
-    EnableDeletionProtection     *bool
-    EnableHttp2                  *bool
-    IdleTimeout                  *int
-    PreserveHostHeader           *bool
-    EnableCrossZoneLoadBalancing *string
-    ClientKeepAlive              *int
-    XffHeaderProcessingMode      *string
-    Tags                         map[string]string
-}
-
-func (c *Client) UpdateLoadBalancer(ctx context.Context, loadBalancerID string, input *UpdateLoadBalancerInput) (*LoadBalancer, error) {
+func (c *Client) UpdateLoadBalancer(ctx context.Context, loadBalancerID string, input *LoadBalancerUpdate) (*LoadBalancer, error) {
 	resp, err := c.sendRequest(ctx, "PUT", fmt.Sprintf("/aws_account/%s/load-balancers/%s", c.accountID, loadBalancerID), input)
 	if err != nil {
 		return nil, err

@@ -124,12 +124,18 @@ func resourceHLBLoadBalancer() *schema.Resource {
 				Optional: true,
 				Elem:     &schema.Schema{Type: schema.TypeString},
 			},
+			"zone_id": {
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
+			},
+			"zone_name": {
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
+			},
 			// Computed attributes
 			"dns_name": {
-				Type:     schema.TypeString,
-				Computed: true,
-			},
-			"zone_id": {
 				Type:     schema.TypeString,
 				Computed: true,
 			},
@@ -144,22 +150,24 @@ func resourceHLBLoadBalancer() *schema.Resource {
 func resourceHLBLoadBalancerCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*hlb.Client)
 
-	input := &hlb.CreateLoadBalancerInput{
-		Name:                         d.Get("name").(string),
-		NamePrefix:                   d.Get("name_prefix").(string),
-		Internal:                     d.Get("internal").(bool),
-		Subnets:                      expandStringSet(d.Get("subnets").(*schema.Set)),
-		SecurityGroups:               expandStringSet(d.Get("security_groups").(*schema.Set)),
+	input := &hlb.LoadBalancerCreate{
 		AccessLogs:                   expandAccessLogs(d.Get("access_logs").([]interface{})),
+		ClientKeepAlive:              d.Get("client_keep_alive").(int),
+		EnableCrossZoneLoadBalancing: d.Get("enable_cross_zone_load_balancing").(string),
 		EnableDeletionProtection:     d.Get("enable_deletion_protection").(bool),
 		EnableHttp2:                  d.Get("enable_http2").(bool),
 		IdleTimeout:                  d.Get("idle_timeout").(int),
+		Internal:                     d.Get("internal").(bool),
 		IPAddressType:                d.Get("ip_address_type").(string),
+		Name:                         d.Get("name").(string),
+		NamePrefix:                   d.Get("name_prefix").(string),
 		PreserveHostHeader:           d.Get("preserve_host_header").(bool),
-		EnableCrossZoneLoadBalancing: d.Get("enable_cross_zone_load_balancing").(string),
-		ClientKeepAlive:              d.Get("client_keep_alive").(int),
+		SecurityGroups:               expandStringSet(d.Get("security_groups").(*schema.Set)),
+		Subnets:                      expandStringSet(d.Get("subnets").(*schema.Set)),
+		Tags:                         *expandTags(d.Get("tags").(map[string]interface{})),
 		XffHeaderProcessingMode:      d.Get("xff_header_processing_mode").(string),
-		Tags:                         expandTags(d.Get("tags").(map[string]interface{})),
+		ZoneID:                       d.Get("zone_id").(string),
+		ZoneName:                     d.Get("zone_name").(string),
 	}
 
 	lb, err := client.CreateLoadBalancer(ctx, input)
@@ -180,27 +188,28 @@ func resourceHLBLoadBalancerRead(ctx context.Context, d *schema.ResourceData, me
 		return diag.FromErr(err)
 	}
 
-	d.Set("name", lb.Name)
-	d.Set("internal", lb.Internal)
-	d.Set("subnets", lb.Subnets)
-	d.Set("security_groups", lb.SecurityGroups)
 	if lb.AccessLogs != nil {
 		d.Set("access_logs", []interface{}{flattenAccessLogs(lb.AccessLogs)})
 	} else {
 		d.Set("access_logs", nil)
 	}
+	d.Set("client_keep_alive", lb.ClientKeepAlive)
+	d.Set("dns_name", lb.DNSName)
+	d.Set("enable_cross_zone_load_balancing", lb.EnableCrossZoneLoadBalancing)
 	d.Set("enable_deletion_protection", lb.EnableDeletionProtection)
 	d.Set("enable_http2", lb.EnableHttp2)
 	d.Set("idle_timeout", lb.IdleTimeout)
+	d.Set("internal", lb.Internal)
 	d.Set("ip_address_type", lb.IPAddressType)
+	d.Set("name", lb.Name)
 	d.Set("preserve_host_header", lb.PreserveHostHeader)
-	d.Set("enable_cross_zone_load_balancing", lb.EnableCrossZoneLoadBalancing)
-	d.Set("client_keep_alive", lb.ClientKeepAlive)
-	d.Set("xff_header_processing_mode", lb.XffHeaderProcessingMode)
-	d.Set("tags", flattenTags(lb.Tags))
-	d.Set("dns_name", lb.DNSName)
-	d.Set("zone_id", lb.ZoneID)
+	d.Set("security_groups", lb.SecurityGroups)
 	d.Set("state", lb.State)
+	d.Set("subnets", lb.Subnets)
+	d.Set("tags", flattenTags(lb.Tags))
+	d.Set("xff_header_processing_mode", lb.XffHeaderProcessingMode)
+	d.Set("zone_id", lb.ZoneID)
+	d.Set("zone_name", lb.ZoneName)
 
 	return nil
 }
@@ -208,10 +217,10 @@ func resourceHLBLoadBalancerRead(ctx context.Context, d *schema.ResourceData, me
 func resourceHLBLoadBalancerUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*hlb.Client)
 
-	input := &hlb.UpdateLoadBalancerInput{
-		Name:           d.Get("name").(string),
-		SecurityGroups: expandStringSet(d.Get("security_groups").(*schema.Set)),
+	input := &hlb.LoadBalancerUpdate{
 		AccessLogs:     expandAccessLogs(d.Get("access_logs").([]interface{})),
+		Name:           d.Get("name").(*string),
+		SecurityGroups: expandStringSet(d.Get("security_groups").(*schema.Set)),
 		Tags:           expandTags(d.Get("tags").(map[string]interface{})),
 	}
 
@@ -307,12 +316,12 @@ func flattenAccessLogs(accessLogs *hlb.AccessLogs) []interface{} {
 	return []interface{}{m}
 }
 
-func expandTags(m map[string]interface{}) map[string]string {
+func expandTags(m map[string]interface{}) *map[string]string {
 	result := make(map[string]string, len(m))
 	for k, v := range m {
 		result[k] = v.(string)
 	}
-	return result
+	return &result
 }
 
 func flattenTags(tags map[string]string) map[string]interface{} {

@@ -14,7 +14,7 @@ type Listener struct {
 	Port                      int       `json:"port"`
 	Protocol                  string    `json:"protocol"`
 	TargetGroupARN            string    `json:"targetGroupArn"`
-	CertificateSecretsARN     string    `json:"certificateSecretsArn,omitempty"`
+	CertificateSecretsName    string    `json:"certificateSecretsName,omitempty"`
 	ALPNPolicy                string    `json:"alpnPolicy,omitempty"`
 	EnableDeletionProtection  bool      `json:"enableDeletionProtection"`
 	CreatedAt                 time.Time `json:"createdAt"`
@@ -25,7 +25,7 @@ type CreateListenerInput struct {
 	Port                      int    `json:"port"`
 	Protocol                  string `json:"protocol"`
 	TargetGroupARN            string `json:"targetGroupArn"`
-	CertificateSecretsARN     string `json:"certificateSecretsArn,omitempty"`
+	CertificateSecretsName    string `json:"certificateSecretsName,omitempty"`
 	ALPNPolicy                string `json:"alpnPolicy,omitempty"`
 	EnableDeletionProtection  bool   `json:"enableDeletionProtection"`
 }
@@ -34,7 +34,7 @@ type UpdateListenerInput struct {
 	Port                      *int    `json:"port,omitempty"`
 	Protocol                  *string `json:"protocol,omitempty"`
 	TargetGroupARN            *string `json:"targetGroupArn,omitempty"`
-	CertificateSecretsARN     *string `json:"certificateSecretsArn,omitempty"`
+	CertificateSecretsName    *string `json:"certificateSecretsName,omitempty"`
 	ALPNPolicy                *string `json:"alpnPolicy,omitempty"`
 	EnableDeletionProtection  *bool   `json:"enableDeletionProtection"`
 }
