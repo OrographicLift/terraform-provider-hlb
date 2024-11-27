@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -15,6 +16,12 @@ func resourceHLBLoadBalancer() *schema.Resource {
 		ReadContext:   resourceHLBLoadBalancerRead,
 		UpdateContext: resourceHLBLoadBalancerUpdate,
 		DeleteContext: resourceHLBLoadBalancerDelete,
+
+		Timeouts: &schema.ResourceTimeout{
+			Create: schema.DefaultTimeout(30 * time.Minute),
+			Update: schema.DefaultTimeout(30 * time.Minute),
+			Delete: schema.DefaultTimeout(30 * time.Minute),
+		},
 
 		Schema: map[string]*schema.Schema{
 			"name": {
@@ -219,9 +226,13 @@ func resourceHLBLoadBalancerUpdate(ctx context.Context, d *schema.ResourceData, 
 
 	input := &hlb.LoadBalancerUpdate{
 		AccessLogs:     expandAccessLogs(d.Get("access_logs").([]interface{})),
-		Name:           d.Get("name").(*string),
 		SecurityGroups: expandStringSet(d.Get("security_groups").(*schema.Set)),
 		Tags:           expandTags(d.Get("tags").(map[string]interface{})),
+	}
+
+	if d.HasChange("name") {
+		v := d.Get("name").(string)
+		input.Name = &v
 	}
 
 	if d.HasChange("enable_deletion_protection") {
@@ -302,18 +313,16 @@ func expandAccessLogs(l []interface{}) *hlb.AccessLogs {
 	return accessLogs
 }
 
-func flattenAccessLogs(accessLogs *hlb.AccessLogs) []interface{} {
+func flattenAccessLogs(accessLogs *hlb.AccessLogs) map[string]interface{} {
 	if accessLogs == nil {
-		return []interface{}{}
+		return nil
 	}
 
-	m := map[string]interface{}{
+	return map[string]interface{}{
 		"enabled": accessLogs.Enabled,
 		"bucket":  accessLogs.Bucket,
 		"prefix":  accessLogs.Prefix,
 	}
-
-	return []interface{}{m}
 }
 
 func expandTags(m map[string]interface{}) *map[string]string {
