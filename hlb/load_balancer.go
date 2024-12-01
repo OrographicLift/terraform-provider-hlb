@@ -13,8 +13,9 @@ import (
 
 type LoadBalancer struct {
 	AccessLogs                   *AccessLogs       `json:"accessLogs,omitempty"`
+	AccountID                    string            `json:"accountId"`
 	ClientKeepAlive              int               `json:"clientKeepAlive"`
-	CreatedAt                    string            `json:"createdAt"`
+	CreatedAt                    time.Time         `json:"createdAt"`
 	DNSName                      string            `json:"dnsName"`
 	EnableCrossZoneLoadBalancing string            `json:"enableCrossZoneLoadBalancing"`
 	EnableDeletionProtection     bool              `json:"enableDeletionProtection"`
@@ -24,18 +25,24 @@ type LoadBalancer struct {
 	IdleTimeout                  int               `json:"idleTimeout"`
 	Internal                     bool              `json:"internal"`
 	IPAddressType                string            `json:"ipAddressType"`
+	LaunchConfig                 *LaunchConfig     `json:"launchConfig"`
 	Name                         string            `json:"name"`
 	PreserveHostHeader           bool              `json:"preserveHostHeader"`
 	SecurityGroups               []string          `json:"securityGroups"`
 	State                        string            `json:"state"`
 	Subnets                      []string          `json:"subnets"`
 	Tags                         map[string]string `json:"tags"`
-	UpdatedAt                    string            `json:"updatedAt"`
+	UpdatedAt                    time.Time         `json:"updatedAt"`
 	URI                          string            `json:"uri"`
 	XffHeaderProcessingMode      string            `json:"xffHeaderProcessingMode"`
 	ZoneID                       string            `json:"zoneId"`
 	ZoneName                     string            `json:"zoneName"`
-	AccountID                    string            `json:"accountId"`
+}
+
+type LaunchConfig struct {
+	InstanceType     string `json:"instanceType"`
+	MinInstanceCount int    `json:"minInstanceCount"`
+	TargetCPUUsage   int    `json:"targetCpuUsage"`
 }
 
 type AccessLogs struct {
@@ -53,6 +60,7 @@ type LoadBalancerCreate struct {
 	IdleTimeout                  int               `json:"idleTimeout"`
 	Internal                     bool              `json:"internal"`
 	IPAddressType                string            `json:"ipAddressType"`
+	LaunchConfig                 *LaunchConfig     `json:"launchConfig"`
 	Name                         string            `json:"name"`
 	NamePrefix                   string            `json:"namePrefix"`
 	PreserveHostHeader           bool              `json:"preserveHostHeader"`
@@ -71,6 +79,7 @@ type LoadBalancerUpdate struct {
 	EnableDeletionProtection     *bool              `json:"enableDeletionProtection"`
 	EnableHttp2                  *bool              `json:"enableHttp2"`
 	IdleTimeout                  *int               `json:"idleTimeout"`
+	LaunchConfig                 *LaunchConfig      `json:"launchConfig"`
 	Name                         *string            `json:"name"`
 	PreserveHostHeader           *bool              `json:"preserveHostHeader"`
 	SecurityGroups               []string           `json:"securityGroups"`

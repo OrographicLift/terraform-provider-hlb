@@ -75,6 +75,29 @@ func resourceHLBLoadBalancer() *schema.Resource {
 					},
 				},
 			},
+			"launch_config": {
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"instance_type": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"min_instance_count": {
+							Type:         schema.TypeInt,
+							Optional:     true,
+							ValidateFunc: validation.IntAtLeast(1),
+						},
+						"target_cpu_usage": {
+							Type:         schema.TypeInt,
+							Optional:     true,
+							ValidateFunc: validation.IntBetween(10, 90),
+						},
+					},
+				},
+			},
 			"enable_deletion_protection": {
 				Type:     schema.TypeBool,
 				Optional: true,
@@ -166,6 +189,7 @@ func resourceHLBLoadBalancerCreate(ctx context.Context, d *schema.ResourceData, 
 		IdleTimeout:                  d.Get("idle_timeout").(int),
 		Internal:                     d.Get("internal").(bool),
 		IPAddressType:                d.Get("ip_address_type").(string),
+		LaunchConfig:                 expandLaunchConfig(d.Get("launch_config").([]interface{})),
 		Name:                         d.Get("name").(string),
 		NamePrefix:                   d.Get("name_prefix").(string),
 		PreserveHostHeader:           d.Get("preserve_host_header").(bool),
@@ -208,6 +232,11 @@ func resourceHLBLoadBalancerRead(ctx context.Context, d *schema.ResourceData, me
 	d.Set("idle_timeout", lb.IdleTimeout)
 	d.Set("internal", lb.Internal)
 	d.Set("ip_address_type", lb.IPAddressType)
+	if lb.LaunchConfig != nil {
+		d.Set("launch_config", []interface{}{flattenLaunchConfig(lb.LaunchConfig)})
+	} else {
+		d.Set("launch_config", nil)
+	}
 	d.Set("name", lb.Name)
 	d.Set("preserve_host_header", lb.PreserveHostHeader)
 	d.Set("security_groups", lb.SecurityGroups)
@@ -270,6 +299,10 @@ func resourceHLBLoadBalancerUpdate(ctx context.Context, d *schema.ResourceData, 
 		input.XffHeaderProcessingMode = &v
 	}
 
+	if d.HasChange("launch_config") {
+		input.LaunchConfig = expandLaunchConfig(d.Get("launch_config").([]interface{}))
+	}
+
 	_, err := client.UpdateLoadBalancer(ctx, d.Id(), input)
 	if err != nil {
 		return diag.FromErr(err)
@@ -322,6 +355,34 @@ func flattenAccessLogs(accessLogs *hlb.AccessLogs) map[string]interface{} {
 		"enabled": accessLogs.Enabled,
 		"bucket":  accessLogs.Bucket,
 		"prefix":  accessLogs.Prefix,
+	}
+}
+
+func expandLaunchConfig(l []interface{}) *hlb.LaunchConfig {
+	if len(l) == 0 || l[0] == nil {
+		return nil
+	}
+
+	m := l[0].(map[string]interface{})
+
+	launchConfig := &hlb.LaunchConfig{
+		InstanceType:     m["instance_type"].(string),
+		MinInstanceCount: m["min_instance_count"].(int),
+		TargetCPUUsage:   m["target_cpu_usage"].(int),
+	}
+
+	return launchConfig
+}
+
+func flattenLaunchConfig(launchConfig *hlb.LaunchConfig) map[string]interface{} {
+	if launchConfig == nil {
+		return nil
+	}
+
+	return map[string]interface{}{
+		"instance_type":      launchConfig.InstanceType,
+		"min_instance_count": launchConfig.MinInstanceCount,
+		"target_cpu_usage":   launchConfig.TargetCPUUsage,
 	}
 }
 
