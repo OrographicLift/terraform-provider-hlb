@@ -152,6 +152,29 @@ func (c *Client) waitForLoadBalancerState(ctx context.Context, id string, target
 	return lb, nil
 }
 
+func (c *Client) ListLoadBalancers(ctx context.Context, limit int, nextToken string) ([]LoadBalancer, string, error) {
+	url := fmt.Sprintf("/aws_account/%s/load-balancers?limit=%d", c.accountID, limit)
+	if nextToken != "" {
+		url += fmt.Sprintf("&nextToken=%s", nextToken)
+	}
+
+	resp, err := c.sendRequest(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, "", err
+	}
+	defer resp.Body.Close()
+
+	var response struct {
+		Items     []LoadBalancer `json:"items"`
+		NextToken string         `json:"nextToken"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, "", fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return response.Items, response.NextToken, nil
+}
+
 func (c *Client) CreateLoadBalancer(ctx context.Context, input *LoadBalancerCreate) (*LoadBalancer, error) {
 	resp, err := c.sendRequest(ctx, "POST", fmt.Sprintf("/aws_account/%s/load-balancers", c.accountID), input)
 	if err != nil {
