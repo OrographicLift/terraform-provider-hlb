@@ -85,7 +85,11 @@ func (c *Client) UpdateListener(ctx context.Context, loadBalancerID, listenerID 
 }
 
 func (c *Client) DeleteListener(ctx context.Context, loadBalancerID, listenerID string) error {
-	_, err := c.sendRequest(ctx, "DELETE", fmt.Sprintf("/aws_account/%s/load-balancers/%s/listeners/%s", c.accountID, loadBalancerID, listenerID), nil)
+	resp, err := c.sendRequest(ctx, "DELETE", fmt.Sprintf("/aws_account/%s/load-balancers/%s/listeners/%s", c.accountID, loadBalancerID, listenerID), nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
 	return err
 }
 

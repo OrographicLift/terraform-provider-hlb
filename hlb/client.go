@@ -8,7 +8,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -27,6 +29,7 @@ type Client struct {
 	awsConfig   aws.Config
 	accountID   string
 	credentials *Credentials
+	debug       bool
 }
 
 func NewClient(ctx context.Context, apiKey string, awsConfig aws.Config) (*Client, error) {
@@ -35,6 +38,9 @@ func NewClient(ctx context.Context, apiKey string, awsConfig aws.Config) (*Clien
 	retryClient.RetryWaitMin = 1 * time.Second
 	retryClient.RetryWaitMax = 30 * time.Second
 	retryClient.CheckRetry = customRetryPolicy
+
+	// Disable default debug logging
+	retryClient.Logger = nil
 
 	credentials, err := loadOrCreateCredentials(ctx, apiKey, awsConfig)
 	if err != nil {
@@ -48,7 +54,17 @@ func NewClient(ctx context.Context, apiKey string, awsConfig aws.Config) (*Clien
 		awsConfig:   awsConfig,
 		accountID:   credentials.AccountID,
 		credentials: credentials,
+		debug:       false,
 	}, nil
+}
+
+func (c *Client) SetDebug(enabled bool) {
+	c.debug = enabled
+	if enabled {
+		c.httpClient.Logger = log.New(os.Stdout, "", log.LstdFlags)
+	} else {
+		c.httpClient.Logger = nil
+	}
 }
 
 func (c *Client) GetRegion() string {
@@ -62,6 +78,10 @@ func (c *Client) GetAccountID() string {
 func (c *Client) sendRequest(ctx context.Context, method, path string, body interface{}) (*http.Response, error) {
 	url := fmt.Sprintf("%s%s", c.baseURL, path)
 
+	if c.debug {
+		log.Printf("[DEBUG] %s %s", method, url)
+	}
+
 	XSTSGCIHeaders, err := getSCDIHeader(ctx, c.awsConfig, c.credentials)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate API credentials: %w", err)
@@ -74,6 +94,9 @@ func (c *Client) sendRequest(ctx context.Context, method, path string, body inte
 			return nil, fmt.Errorf("failed to marshal request body: %w", err)
 		}
 		buf = bytes.NewBuffer(payloadBytes)
+		if c.debug {
+			log.Printf("[DEBUG] Request body: %s", string(payloadBytes))
+		}
 	}
 
 	req, err := retryablehttp.NewRequest(method, url, buf)
@@ -92,6 +115,16 @@ func (c *Client) sendRequest(ctx context.Context, method, path string, body inte
 
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("API request failed with status code: %d", resp.StatusCode)
+	}
+
+	if c.debug && resp.Body != nil {
+		// Read the response body for debug logging
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err == nil {
+			log.Printf("[DEBUG] Response body: %s", string(bodyBytes))
+			// Create a new reader with the same bytes for the actual response
+			resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		}
 	}
 
 	return resp, nil
