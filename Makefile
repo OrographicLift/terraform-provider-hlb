@@ -3,11 +3,13 @@ HOSTNAME := registry.terraform.io
 NAMESPACE := zonehero
 NAME := hlb
 BINARY := terraform-provider-${NAME}
+CLI_BINARY := zonehero
 OS := $(shell go env GOOS)
 ARCH := $(shell go env GOARCH)
 LOCAL_PROVIDER_DIR := ~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS}_${ARCH}
+LOCAL_BIN_DIR := /usr/local/bin
 
-.PHONY: build install clean
+.PHONY: build install clean cli cli-install
 
 default: build
 
@@ -18,8 +20,16 @@ install: build
 	@mkdir -p ${LOCAL_PROVIDER_DIR}
 	mv ${BINARY}_v${VERSION} ${LOCAL_PROVIDER_DIR}/${BINARY}_v${VERSION}
 
+cli:
+	go build -o ${CLI_BINARY} ./cmd/zonehero
+
+cli-install: cli
+	@sudo mv ${CLI_BINARY} ${LOCAL_BIN_DIR}/${CLI_BINARY}
+	@echo "Installed ${CLI_BINARY} to ${LOCAL_BIN_DIR}"
+
 clean:
 	rm -f ${BINARY}_v${VERSION}
+	rm -f ${CLI_BINARY}
 	rm -rf ${LOCAL_PROVIDER_DIR}
 
 test:
@@ -45,4 +55,8 @@ lint:
 docs:
 	go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs
 
-.PHONY: test test-race test-short fmt lint docs
+all: build cli
+
+install-all: install cli-install
+
+.PHONY: test test-race test-short fmt lint docs all install-all
