@@ -223,10 +223,11 @@ func (c *Client) UpdateLoadBalancer(ctx context.Context, loadBalancerID string, 
 }
 
 func (c *Client) DeleteLoadBalancer(ctx context.Context, loadBalancerID string) error {
-	_, err := c.sendRequest(ctx, "DELETE", fmt.Sprintf("/aws_account/%s/load-balancers/%s", c.accountID, loadBalancerID), nil)
+	resp, err := c.sendRequest(ctx, "DELETE", fmt.Sprintf("/aws_account/%s/load-balancers/%s", c.accountID, loadBalancerID), nil)
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 
 	// Wait for the load balancer to be deleted
 	_, err = c.waitForLoadBalancerState(ctx, loadBalancerID, []string{LBStateDeleted}, DefaultDeleteTimeout)
