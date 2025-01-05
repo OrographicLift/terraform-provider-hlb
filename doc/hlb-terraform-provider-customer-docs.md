@@ -94,6 +94,7 @@ For `launch_config` the following attributes are supported:
 
 * `instance_type` - (Optional) The EC2 instance type to use for the load balancer nodes. If not specified, the backend will choose an appropriate default (currently c7g.medium).
 * `min_instance_count` - (Optional) The minimum number of instances to maintain (integer, minimum 1). This will be rounded up to a multiple of the number of AZ. If not specified, the backend will choose an appropriate default.
+* `max_instance_count` - (Optional) The maximum number of instances to maintain (integer, minimum 1). This will be rounded down to a multiple of the number of AZ. If not specified, the backend will choose 10 x `min_instance_count`.
 * `target_cpu_usage` - (Optional) The target CPU usage percentage (10-90) for auto-scaling. If not specified, the backend will choose an appropriate default.
 
 Note: The launch configuration is entirely optional. If not specified, the backend will use appropriate defaults for all fields. This allows the backend to automatically adjust defaults for all customers who haven't explicitly set these values.
