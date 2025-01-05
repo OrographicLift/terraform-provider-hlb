@@ -42,6 +42,7 @@ type LoadBalancer struct {
 type LaunchConfig struct {
 	InstanceType     string `json:"instanceType"`
 	MinInstanceCount int    `json:"minInstanceCount"`
+	MaxInstanceCount int    `json:"maxInstanceCount"`
 	TargetCPUUsage   int    `json:"targetCpuUsage"`
 }
 

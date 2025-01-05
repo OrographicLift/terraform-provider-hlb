@@ -92,6 +92,11 @@ func resourceHLBLoadBalancer() *schema.Resource {
 							Optional:     true,
 							ValidateFunc: validation.IntAtLeast(1),
 						},
+						"max_instance_count": {
+							Type:         schema.TypeInt,
+							Optional:     true,
+							ValidateFunc: validation.IntAtLeast(1),
+						},
 						"target_cpu_usage": {
 							Type:         schema.TypeInt,
 							Optional:     true,
@@ -370,6 +375,7 @@ func expandLaunchConfig(l []interface{}) *hlb.LaunchConfig {
 	launchConfig := &hlb.LaunchConfig{
 		InstanceType:     m["instance_type"].(string),
 		MinInstanceCount: m["min_instance_count"].(int),
+		MaxInstanceCount: m["max_instance_count"].(int),
 		TargetCPUUsage:   m["target_cpu_usage"].(int),
 	}
 
@@ -384,6 +390,7 @@ func flattenLaunchConfig(launchConfig *hlb.LaunchConfig) map[string]interface{} 
 	return map[string]interface{}{
 		"instance_type":      launchConfig.InstanceType,
 		"min_instance_count": launchConfig.MinInstanceCount,
+		"max_instance_count": launchConfig.MaxInstanceCount,
 		"target_cpu_usage":   launchConfig.TargetCPUUsage,
 	}
 }
