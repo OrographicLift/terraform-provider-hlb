@@ -16,6 +16,7 @@ type LoadBalancer struct {
 	AccountID                    string            `json:"accountId"`
 	ClientKeepAlive              int               `json:"clientKeepAlive"`
 	CreatedAt                    time.Time         `json:"createdAt"`
+	DeploymentStatus             *DeploymentStatus `json:"deploymentStatus,omitempty"`
 	DNSName                      string            `json:"dnsName"`
 	EnableCrossZoneLoadBalancing string            `json:"enableCrossZoneLoadBalancing"`
 	EnableDeletionProtection     bool              `json:"enableDeletionProtection"`
@@ -25,7 +26,7 @@ type LoadBalancer struct {
 	IdleTimeout                  int               `json:"idleTimeout"`
 	Internal                     bool              `json:"internal"`
 	IPAddressType                string            `json:"ipAddressType"`
-	LaunchConfig                 *LaunchConfig     `json:"launchConfig"`
+	LaunchConfig                 *LaunchConfig     `json:"launchConfig,omitempty"`
 	Name                         string            `json:"name"`
 	PreserveHostHeader           bool              `json:"preserveHostHeader"`
 	SecurityGroups               []string          `json:"securityGroups"`
@@ -37,6 +38,12 @@ type LoadBalancer struct {
 	XffHeaderProcessingMode      string            `json:"xffHeaderProcessingMode"`
 	ZoneID                       string            `json:"zoneId"`
 	ZoneName                     string            `json:"zoneName"`
+}
+
+type DeploymentStatus struct {
+	ErrorMessage string `json:"errorMessage,omitempty"`
+	Metadata     []byte `json:"metadata,omitempty"`
+	Version      string `json:"version,omitempty"`
 }
 
 type LaunchConfig struct {
@@ -89,15 +96,18 @@ type LoadBalancerUpdate struct {
 }
 
 const (
-	LBStatePendingCreation = "pending_creation"
+	LBCrossAZPolicyAvoid   = "avoid"
+	LBCrossAZPolicyFull    = "full"
+	LBCrossAZPolicyOff     = "off"
+	LBStateActive          = "active"
 	LBStateCreating        = "creating"
+	LBStateDeleted         = "deleted"
+	LBStateDeleting        = "deleting"
+	LBStateFailed          = "failed"
+	LBStatePendingCreation = "pending_creation"
+	LBStatePendingDeletion = "pending_delete"
 	LBStatePendingUpdate   = "pending_update"
 	LBStateUpdating        = "updating"
-	LBStatePendingDeletion = "pending_delete"
-	LBStateDeleting        = "deleting"
-	LBStateDeleted         = "deleted"
-	LBStateActive          = "active"
-	LBStateFailed          = "failed"
 
 	// Default timeouts
 	DefaultCreateTimeout = 30 * time.Minute
@@ -132,7 +142,11 @@ func (c *Client) waitForLoadBalancerState(ctx context.Context, id string, target
 		}
 
 		if lb.State == LBStateFailed {
-			return retry.NonRetryableError(fmt.Errorf("load balancer (%s) entered failed state", id))
+			extendedErrorMessage := "None"
+			if lb.DeploymentStatus != nil && lb.DeploymentStatus.ErrorMessage != "" {
+				extendedErrorMessage = lb.DeploymentStatus.ErrorMessage
+			}
+			return retry.NonRetryableError(fmt.Errorf("load balancer (%s) entered failed state, with message '%s'", id, extendedErrorMessage))
 		}
 
 		if targetStates[lb.State] {

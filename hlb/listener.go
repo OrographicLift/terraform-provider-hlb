@@ -8,38 +8,41 @@ import (
 )
 
 type Listener struct {
-	ID                        string    `json:"id"`
-	URI                       string    `json:"uri"`
-	LoadBalancerID            string    `json:"loadBalancerId"`
-	Port                      int       `json:"port"`
-	Protocol                  string    `json:"protocol"`
-	TargetGroupARN            string    `json:"targetGroupArn"`
-	CertificateSecretsName    string    `json:"certificateSecretsName,omitempty"`
-	ALPNPolicy                string    `json:"alpnPolicy,omitempty"`
-	EnableDeletionProtection  bool      `json:"enableDeletionProtection"`
-	CreatedAt                 time.Time `json:"createdAt"`
-	UpdatedAt                 time.Time `json:"updatedAt"`
+	ALPNPolicy               string    `json:"alpnPolicy,omitempty"`
+	CertificateSecretsName   string    `json:"certificateSecretsName,omitempty"`
+	CreatedAt                time.Time `json:"createdAt"`
+	EnableDeletionProtection bool      `json:"enableDeletionProtection"`
+	ID                       string    `json:"id"`
+	LoadBalancerID           string    `json:"loadBalancerId"`
+	OverprovisioningFactor   float64   `json:"overprovisioningFactor"`
+	Port                     int       `json:"port"`
+	Protocol                 string    `json:"protocol"`
+	TargetGroupARN           string    `json:"targetGroupArn"`
+	UpdatedAt                time.Time `json:"updatedAt"`
+	URI                      string    `json:"uri"`
 }
 
-type CreateListenerInput struct {
-	Port                      int    `json:"port"`
-	Protocol                  string `json:"protocol"`
-	TargetGroupARN            string `json:"targetGroupArn"`
-	CertificateSecretsName    string `json:"certificateSecretsName,omitempty"`
-	ALPNPolicy                string `json:"alpnPolicy,omitempty"`
-	EnableDeletionProtection  bool   `json:"enableDeletionProtection"`
+type ListenerCreate struct {
+	ALPNPolicy               string  `json:"alpnPolicy,omitempty"`
+	CertificateSecretsName   string  `json:"certificateSecretsName,omitempty"`
+	EnableDeletionProtection bool    `json:"enableDeletionProtection"`
+	OverprovisioningFactor   float64 `json:"overprovisioningFactor"`
+	Port                     int     `json:"port"`
+	Protocol                 string  `json:"protocol"`
+	TargetGroupARN           string  `json:"targetGroupArn"`
 }
 
-type UpdateListenerInput struct {
-	Port                      *int    `json:"port,omitempty"`
-	Protocol                  *string `json:"protocol,omitempty"`
-	TargetGroupARN            *string `json:"targetGroupArn,omitempty"`
-	CertificateSecretsName    *string `json:"certificateSecretsName,omitempty"`
-	ALPNPolicy                *string `json:"alpnPolicy,omitempty"`
-	EnableDeletionProtection  *bool   `json:"enableDeletionProtection"`
+type ListenerUpdate struct {
+	ALPNPolicy               *string  `json:"alpnPolicy,omitempty"`
+	CertificateSecretsName   *string  `json:"certificateSecretsName,omitempty"`
+	EnableDeletionProtection *bool    `json:"enableDeletionProtection"`
+	OverprovisioningFactor   *float64 `json:"overprovisioningFactor"`
+	Port                     *int     `json:"port,omitempty"`
+	Protocol                 *string  `json:"protocol,omitempty"`
+	TargetGroupARN           *string  `json:"targetGroupArn,omitempty"`
 }
 
-func (c *Client) CreateListener(ctx context.Context, loadBalancerID string, input *CreateListenerInput) (*Listener, error) {
+func (c *Client) CreateListener(ctx context.Context, loadBalancerID string, input *ListenerCreate) (*Listener, error) {
 	resp, err := c.sendRequest(ctx, "POST", fmt.Sprintf("/aws_account/%s/load-balancers/%s/listeners", c.accountID, loadBalancerID), input)
 	if err != nil {
 		return nil, err
@@ -69,7 +72,7 @@ func (c *Client) GetListener(ctx context.Context, loadBalancerID, listenerID str
 	return &listener, nil
 }
 
-func (c *Client) UpdateListener(ctx context.Context, loadBalancerID, listenerID string, input *UpdateListenerInput) (*Listener, error) {
+func (c *Client) UpdateListener(ctx context.Context, loadBalancerID, listenerID string, input *ListenerUpdate) (*Listener, error) {
 	resp, err := c.sendRequest(ctx, "PUT", fmt.Sprintf("/aws_account/%s/load-balancers/%s/listeners/%s", c.accountID, loadBalancerID, listenerID), input)
 	if err != nil {
 		return nil, err

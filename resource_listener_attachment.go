@@ -17,10 +17,31 @@ func resourceHLBListenerAttachment() *schema.Resource {
 		DeleteContext: resourceHLBListenerAttachmentDelete,
 
 		Schema: map[string]*schema.Schema{
+			"alpn_policy": {
+				Type:     schema.TypeString,
+				Optional: true,
+				ValidateFunc: validation.StringInSlice([]string{
+					"HTTP1Only", "HTTP2Only", "HTTP2Optional", "HTTP2Preferred", "None",
+				}, false),
+			},
+			"certificate_secrets_name": {
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+			"enable_deletion_protection": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
+			},
 			"load_balancer_id": {
 				Type:     schema.TypeString,
 				Required: true,
 				ForceNew: true,
+			},
+			"overprovisioning_factor": {
+				Type:     schema.TypeFloat,
+				Optional: true,
+				Default:  1.1,
 			},
 			"port": {
 				Type:         schema.TypeInt,
@@ -38,22 +59,6 @@ func resourceHLBListenerAttachment() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"certificate_secrets_name": {
-				Type:     schema.TypeString,
-				Optional: true,
-			},
-			"alpn_policy": {
-				Type:     schema.TypeString,
-				Optional: true,
-				ValidateFunc: validation.StringInSlice([]string{
-					"HTTP1Only", "HTTP2Only", "HTTP2Optional", "HTTP2Preferred", "None",
-				}, false),
-			},
-			"enable_deletion_protection": {
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  false,
-			},
 		},
 	}
 }
@@ -61,13 +66,14 @@ func resourceHLBListenerAttachment() *schema.Resource {
 func resourceHLBListenerAttachmentCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*hlb.Client)
 
-	input := &hlb.CreateListenerInput{
+	input := &hlb.ListenerCreate{
+		ALPNPolicy:               d.Get("alpn_policy").(string),
+		CertificateSecretsName:   d.Get("certificate_secrets_name").(string),
+		EnableDeletionProtection: d.Get("enable_deletion_protection").(bool),
+		OverprovisioningFactor:   d.Get("overprovisioning_factor").(float64),
 		Port:                     d.Get("port").(int),
 		Protocol:                 d.Get("protocol").(string),
 		TargetGroupARN:           d.Get("target_group_arn").(string),
-		CertificateSecretsName:   d.Get("certificate_secrets_name").(string),
-		ALPNPolicy:               d.Get("alpn_policy").(string),
-		EnableDeletionProtection: d.Get("enable_deletion_protection").(bool),
 	}
 
 	loadBalancerID := d.Get("load_balancer_id").(string)
@@ -89,12 +95,13 @@ func resourceHLBListenerAttachmentRead(ctx context.Context, d *schema.ResourceDa
 		return diag.FromErr(err)
 	}
 
+	d.Set("alpn_policy", listener.ALPNPolicy)
+	d.Set("certificate_secrets_name", listener.CertificateSecretsName)
+	d.Set("enable_deletion_protection", listener.EnableDeletionProtection)
+	d.Set("overprovisioning_factor", listener.OverprovisioningFactor)
 	d.Set("port", listener.Port)
 	d.Set("protocol", listener.Protocol)
 	d.Set("target_group_arn", listener.TargetGroupARN)
-	d.Set("certificate_secrets_name", listener.CertificateSecretsName)
-	d.Set("alpn_policy", listener.ALPNPolicy)
-	d.Set("enable_deletion_protection", listener.EnableDeletionProtection)
 
 	return nil
 }
@@ -102,8 +109,24 @@ func resourceHLBListenerAttachmentRead(ctx context.Context, d *schema.ResourceDa
 func resourceHLBListenerAttachmentUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*hlb.Client)
 
-	input := &hlb.UpdateListenerInput{}
+	input := &hlb.ListenerUpdate{}
 
+	if d.HasChange("alpn_policy") {
+		input.ALPNPolicy = new(string)
+		*input.ALPNPolicy = d.Get("alpn_policy").(string)
+	}
+	if d.HasChange("certificate_secrets_name") {
+		input.CertificateSecretsName = new(string)
+		*input.CertificateSecretsName = d.Get("certificate_secrets_name").(string)
+	}
+	if d.HasChange("enable_deletion_protection") {
+		v := d.Get("enable_deletion_protection").(bool)
+		input.EnableDeletionProtection = &v
+	}
+	if d.HasChange("overprovisioning_factor") {
+		v := d.Get("overprovisioning_factor").(float64)
+		input.OverprovisioningFactor = &v
+	}
 	if d.HasChange("port") {
 		input.Port = new(int)
 		*input.Port = d.Get("port").(int)
@@ -115,19 +138,6 @@ func resourceHLBListenerAttachmentUpdate(ctx context.Context, d *schema.Resource
 	if d.HasChange("target_group_arn") {
 		input.TargetGroupARN = new(string)
 		*input.TargetGroupARN = d.Get("target_group_arn").(string)
-	}
-	if d.HasChange("certificate_secrets_name") {
-		input.CertificateSecretsName = new(string)
-		*input.CertificateSecretsName = d.Get("certificate_secrets_name").(string)
-	}
-	if d.HasChange("alpn_policy") {
-		input.ALPNPolicy = new(string)
-		*input.ALPNPolicy = d.Get("alpn_policy").(string)
-	}
-
-	if d.HasChange("enable_deletion_protection") {
-		v := d.Get("enable_deletion_protection").(bool)
-		input.EnableDeletionProtection = &v
 	}
 
 	loadBalancerID := d.Get("load_balancer_id").(string)
