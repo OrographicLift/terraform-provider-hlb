@@ -132,6 +132,7 @@ The following arguments are supported:
 * `load_balancer_id` - (Required) The ID of the HLB.
 * `port` - (Required) The port on which the load balancer is listening.
 * `target_group_arn` - (Required) The ARN of the target group to which to route traffic.
+* `overprovisioning_factor` - (Optional) When the load balancer `enable_cross_zone_load_balancing` is set to `avoid` (default), allows the load balancer to send at most '`overprovisioning_factor` * the average amount of request' to any single instance. Applies to the target group, behaviour is undefined if different values are assigned to different listeners with the same target group. Defaults to `1.1`
 * `protocol` - (Optional) The protocol for connections from clients to the load balancer. Valid values are `HTTP` and `HTTPS`. Defaults to `HTTP`.
 * `alpn_policy` - (Optional) The Application-Layer Protocol Negotiation (ALPN) policy. Valid values are `HTTP1Only`, `HTTP2Only`, `HTTP2Optional`, `HTTP2Preferred`, and `None`.
 * `certificate_secrets_arn` - (Optional) ARN of the secret in AWS Secrets Manager containing the SSL server certificate. Required if the protocol is HTTPS.

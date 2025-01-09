@@ -125,7 +125,7 @@ var createListenerCmd = &cobra.Command{
 		}
 
 		lbID, _ := cmd.Flags().GetString("load-balancer-id")
-		var input hlb.CreateListenerInput
+		var input hlb.ListenerCreate
 
 		// Check if JSON input file is provided
 		if inputJSON, _ := cmd.Flags().GetString("input-json"); inputJSON != "" {
@@ -144,7 +144,7 @@ var createListenerCmd = &cobra.Command{
 			alpnPolicy, _ := cmd.Flags().GetString("alpn-policy")
 			enableDeletionProtection, _ := cmd.Flags().GetBool("enable-deletion-protection")
 
-			input = hlb.CreateListenerInput{
+			input = hlb.ListenerCreate{
 				Port:                     port,
 				Protocol:                 protocol,
 				TargetGroupARN:           targetGroupARN,
@@ -179,7 +179,7 @@ var updateListenerCmd = &cobra.Command{
 
 		lbID, _ := cmd.Flags().GetString("load-balancer-id")
 		listenerID, _ := cmd.Flags().GetString("listener-id")
-		var input hlb.UpdateListenerInput
+		var input hlb.ListenerUpdate
 
 		// Check if JSON input file is provided
 		if inputJSON, _ := cmd.Flags().GetString("input-json"); inputJSON != "" {
