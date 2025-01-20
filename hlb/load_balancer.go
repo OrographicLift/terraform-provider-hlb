@@ -127,8 +127,9 @@ func isLoadBalancerInPendingState(state string) bool {
 	return pendingStates[state]
 }
 
+// Wait for at most timeout for load balancer identified with id to enter one of the states in target[]
 func (c *Client) waitForLoadBalancerState(ctx context.Context, id string, target []string, timeout time.Duration) (*LoadBalancer, error) {
-	targetStates := make(map[string]bool)
+	targetStates := make(map[string]bool, len(target))
 	for _, s := range target {
 		targetStates[s] = true
 	}
