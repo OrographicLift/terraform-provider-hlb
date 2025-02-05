@@ -27,19 +27,24 @@ func Provider() *schema.Provider {
 				DefaultFunc: schema.EnvDefaultFunc("HLB_API_KEY", nil),
 			},
 			"aws_region": {
-				Type:     schema.TypeString,
-				Optional: true,
+				Type:        schema.TypeString,
+				Optional:    true,
 				DefaultFunc: schema.EnvDefaultFunc("AWS_REGION", nil),
 			},
 			"aws_profile": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				DefaultFunc: schema.EnvDefaultFunc("AWS_PROFILE", nil),
+			},
+			"partition": {
 				Type:     schema.TypeString,
 				Optional: true,
-				DefaultFunc: schema.EnvDefaultFunc("AWS_PROFILE", nil),
+				Default:  "aws",
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
-			"hlb_load_balancer": resourceHLBLoadBalancer(),
-			"hlb_listener_attachment":  resourceHLBListenerAttachment(),
+			"hlb_load_balancer":       resourceHLBLoadBalancer(),
+			"hlb_listener_attachment": resourceHLBListenerAttachment(),
 		},
 		ConfigureContextFunc: providerConfigure,
 	}
@@ -64,7 +69,8 @@ func providerConfigure(ctx context.Context, d *schema.ResourceData) (interface{}
 	}
 
 	// Create the HLB client
-	client, err := hlb.NewClient(ctx, apiKey, awsCfg)
+	partition := d.Get("partition").(string)
+	client, err := hlb.NewClient(ctx, apiKey, awsCfg, partition)
 	if err != nil {
 		return nil, diag.FromErr(fmt.Errorf("error creating HLB client: %v", err))
 	}

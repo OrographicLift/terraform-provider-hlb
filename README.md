@@ -57,6 +57,7 @@ provider "hlb" {
   api_key     = var.hlb_api_key
   aws_region  = "us-west-2"  # Optional, will use AWS_REGION env var if not specified
   aws_profile = "my-profile" # Optional, will use default AWS authentication if not specified
+  partition   = "aws"        # Optional, defaults to "aws". Use "aws-dev" for development environment
 }
 
 resource "hlb_load_balancer" "example" {
@@ -123,4 +124,3 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 ## Support
 
 For support, please contact your HLB service representative or open an issue on the GitLab repository.
-

@@ -11,15 +11,17 @@ import (
 )
 
 var (
-	profile string
-	region  string
-	apiKey  string
-	output  string
-	debug   bool
+	profile   string
+	region    string
+	apiKey    string
+	output    string
+	debug     bool
+	partition string
 )
 
 func init() {
 	// Global flags
+	rootCmd.PersistentFlags().StringVar(&partition, "partition", "aws", "Partition to use (aws/aws-dev)")
 	rootCmd.PersistentFlags().StringVar(&profile, "profile", "", "AWS profile to use")
 	rootCmd.PersistentFlags().StringVar(&region, "region", "", "AWS region to use")
 	rootCmd.PersistentFlags().StringVar(&apiKey, "api-key", "", "HLB API key")
@@ -61,7 +63,7 @@ func createClient(ctx context.Context) (*hlb.Client, error) {
 		return nil, fmt.Errorf("error loading AWS config: %v", err)
 	}
 
-	client, err := hlb.NewClient(ctx, apiKey, awsCfg)
+	client, err := hlb.NewClient(ctx, apiKey, awsCfg, partition)
 	if err != nil {
 		return nil, fmt.Errorf("error creating HLB client: %v", err)
 	}
