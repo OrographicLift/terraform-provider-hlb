@@ -1,412 +1,577 @@
-// File: resource_load_balancer.go
-
 package main
 
 import (
 	"context"
-	"time"
+	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"gitlab.guerraz.net/HLB/hlb-terraform-provider/hlb"
 )
 
-func resourceHLBLoadBalancer() *schema.Resource {
-	return &schema.Resource{
-		CreateContext: resourceHLBLoadBalancerCreate,
-		ReadContext:   resourceHLBLoadBalancerRead,
-		UpdateContext: resourceHLBLoadBalancerUpdate,
-		DeleteContext: resourceHLBLoadBalancerDelete,
+// Ensure the implementation satisfies the expected interfaces
+var (
+	_ resource.Resource                = &loadBalancerResource{}
+	_ resource.ResourceWithConfigure   = &loadBalancerResource{}
+	_ resource.ResourceWithImportState = &loadBalancerResource{}
+)
 
-		Timeouts: &schema.ResourceTimeout{
-			Create: schema.DefaultTimeout(30 * time.Minute),
-			Update: schema.DefaultTimeout(30 * time.Minute),
-			Delete: schema.DefaultTimeout(30 * time.Minute),
-		},
+// NewLoadBalancerResource is a helper function to simplify the provider implementation.
+func NewLoadBalancerResource() resource.Resource {
+	return &loadBalancerResource{}
+}
 
-		Schema: map[string]*schema.Schema{
-			"name": {
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: validation.StringLenBetween(1, 32),
+// loadBalancerResource is the resource implementation.
+type loadBalancerResource struct {
+	client *hlb.Client
+}
+
+// loadBalancerResourceModel maps the resource schema data.
+type loadBalancerResourceModel struct {
+	ID                           types.String `tfsdk:"id"`
+	Name                         types.String `tfsdk:"name"`
+	NamePrefix                   types.String `tfsdk:"name_prefix"`
+	Internal                     types.Bool   `tfsdk:"internal"`
+	Subnets                      types.Set    `tfsdk:"subnets"`
+	SecurityGroups               types.Set    `tfsdk:"security_groups"`
+	AccessLogs                   types.List   `tfsdk:"access_logs"`
+	LaunchConfig                 types.List   `tfsdk:"launch_config"`
+	EnableDeletionProtection     types.Bool   `tfsdk:"enable_deletion_protection"`
+	EnableHttp2                  types.Bool   `tfsdk:"enable_http2"`
+	IdleTimeout                  types.Int64  `tfsdk:"idle_timeout"`
+	IPAddressType                types.String `tfsdk:"ip_address_type"`
+	PreserveHostHeader           types.Bool   `tfsdk:"preserve_host_header"`
+	EnableCrossZoneLoadBalancing types.String `tfsdk:"enable_cross_zone_load_balancing"`
+	ClientKeepAlive              types.Int64  `tfsdk:"client_keep_alive"`
+	XffHeaderProcessingMode      types.String `tfsdk:"xff_header_processing_mode"`
+	Tags                         types.Map    `tfsdk:"tags"`
+	ZoneID                       types.String `tfsdk:"zone_id"`
+	ZoneName                     types.String `tfsdk:"zone_name"`
+	DNSName                      types.String `tfsdk:"dns_name"`
+	State                        types.String `tfsdk:"state"`
+}
+
+// accessLogsModel maps the access logs nested object data
+type accessLogsModel struct {
+	Bucket  types.String `tfsdk:"bucket"`
+	Prefix  types.String `tfsdk:"prefix"`
+	Enabled types.Bool   `tfsdk:"enabled"`
+}
+
+// launchConfigModel maps the launch configuration nested object data
+type launchConfigModel struct {
+	InstanceType     types.String `tfsdk:"instance_type"`
+	MinInstanceCount types.Int64  `tfsdk:"min_instance_count"`
+	MaxInstanceCount types.Int64  `tfsdk:"max_instance_count"`
+	TargetCPUUsage   types.Int64  `tfsdk:"target_cpu_usage"`
+}
+
+// Configure adds the provider configured client to the resource.
+func (r *loadBalancerResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	if req.ProviderData == nil {
+		return
+	}
+
+	client, ok := req.ProviderData.(*hlb.Client)
+	if !ok {
+		resp.Diagnostics.AddError(
+			"Unexpected Resource Configure Type",
+			fmt.Sprintf("Expected *hlb.Client, got: %T", req.ProviderData),
+		)
+		return
+	}
+
+	r.client = client
+}
+
+// Metadata returns the resource type name.
+func (r *loadBalancerResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_load_balancer"
+}
+
+// Schema defines the schema for the resource.
+func (r *loadBalancerResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Description: "Manages an HLB Load Balancer",
+		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Computed: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
-			"name_prefix": {
-				Type:         schema.TypeString,
-				Optional:     true,
-				ForceNew:     true,
-				ValidateFunc: validation.StringLenBetween(1, 6),
+			"name": schema.StringAttribute{
+				Required:    true,
+				Description: "Name of the load balancer",
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(1, 32),
+				},
 			},
-			"internal": {
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  false,
-				ForceNew: true,
+			"name_prefix": schema.StringAttribute{
+				Optional:    true,
+				Description: "Creates a unique name beginning with the specified prefix",
+				Validators: []validator.String{
+					stringvalidator.LengthBetween(1, 6),
+				},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
-			"subnets": {
-				Type:     schema.TypeSet,
-				Required: true,
-				ForceNew: true,
-				Elem:     &schema.Schema{Type: schema.TypeString},
-				MinItems: 1,
+			"internal": schema.BoolAttribute{
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
+				Description: "If true, the LB will be internal",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.RequiresReplace(),
+				},
 			},
-			"security_groups": {
-				Type:     schema.TypeSet,
-				Optional: true,
-				Elem:     &schema.Schema{Type: schema.TypeString},
+			"subnets": schema.SetAttribute{
+				Required:    true,
+				ElementType: types.StringType,
+				Description: "List of subnet IDs to attach to the LB",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.RequiresReplace(),
+				},
 			},
-			"access_logs": {
-				Type:     schema.TypeList,
-				Optional: true,
-				MaxItems: 1,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"bucket": {
-							Type:     schema.TypeString,
-							Required: true,
+			"security_groups": schema.SetAttribute{
+				Optional:    true,
+				ElementType: types.StringType,
+				Description: "List of security group IDs to assign to the LB",
+			},
+			"access_logs": schema.ListNestedAttribute{
+				Optional:    true,
+				Description: "Access logs configuration",
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"bucket": schema.StringAttribute{
+							Required:    true,
+							Description: "S3 bucket name",
 						},
-						"prefix": {
-							Type:     schema.TypeString,
-							Optional: true,
+						"prefix": schema.StringAttribute{
+							Optional:    true,
+							Description: "S3 bucket prefix",
 						},
-						"enabled": {
-							Type:     schema.TypeBool,
-							Optional: true,
-							Default:  false,
+						"enabled": schema.BoolAttribute{
+							Optional:    true,
+							Computed:    true,
+							Default:     booldefault.StaticBool(false),
+							Description: "Whether to enable access logs",
 						},
 					},
 				},
 			},
-			"launch_config": {
-				Type:     schema.TypeList,
-				Optional: true,
-				MaxItems: 1,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"instance_type": {
-							Type:     schema.TypeString,
-							Optional: true,
+			"launch_config": schema.ListNestedAttribute{
+				Optional:    true,
+				Description: "Launch configuration for the load balancer",
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"instance_type": schema.StringAttribute{
+							Optional:    true,
+							Description: "EC2 instance type",
 						},
-						"min_instance_count": {
-							Type:         schema.TypeInt,
-							Optional:     true,
-							ValidateFunc: validation.IntAtLeast(1),
+						"min_instance_count": schema.Int64Attribute{
+							Optional:    true,
+							Description: "Minimum number of instances",
+							Validators: []validator.Int64{
+								int64validator.AtLeast(1),
+							},
 						},
-						"max_instance_count": {
-							Type:         schema.TypeInt,
-							Optional:     true,
-							ValidateFunc: validation.IntAtLeast(1),
+						"max_instance_count": schema.Int64Attribute{
+							Optional:    true,
+							Description: "Maximum number of instances",
+							Validators: []validator.Int64{
+								int64validator.AtLeast(1),
+							},
 						},
-						"target_cpu_usage": {
-							Type:         schema.TypeInt,
-							Optional:     true,
-							ValidateFunc: validation.IntBetween(10, 90),
+						"target_cpu_usage": schema.Int64Attribute{
+							Optional:    true,
+							Description: "Target CPU usage percentage",
+							Validators: []validator.Int64{
+								int64validator.Between(10, 90),
+							},
 						},
 					},
 				},
 			},
-			"enable_deletion_protection": {
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  false,
+			"enable_deletion_protection": schema.BoolAttribute{
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
+				Description: "If true, deletion of the load balancer will be disabled",
 			},
-			"enable_http2": {
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  true,
+			"enable_http2": schema.BoolAttribute{
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(true),
+				Description: "Indicates whether HTTP/2 is enabled",
 			},
-			"idle_timeout": {
-				Type:         schema.TypeInt,
-				Optional:     true,
-				Default:      60,
-				ValidateFunc: validation.IntBetween(1, 4000),
+			"idle_timeout": schema.Int64Attribute{
+				Optional:    true,
+				Computed:    true,
+				Default:     int64default.StaticInt64(60),
+				Description: "The time in seconds that the connection is allowed to be idle",
+				Validators: []validator.Int64{
+					int64validator.Between(1, 4000),
+				},
 			},
-			"ip_address_type": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "ipv4",
-				ValidateFunc: validation.StringInSlice([]string{
-					"ipv4", "dualstack", "dualstack-without-public-ipv4",
-				}, false),
+			"ip_address_type": schema.StringAttribute{
+				Optional:    true,
+				Computed:    true,
+				Default:     stringdefault.StaticString("ipv4"),
+				Description: "The type of IP addresses used by the subnets for your load balancer",
+				Validators: []validator.String{
+					stringvalidator.OneOf("ipv4", "dualstack", "dualstack-without-public-ipv4"),
+				},
 			},
-			"preserve_host_header": {
-				Type:     schema.TypeBool,
-				Optional: true,
-				Default:  false,
+			"preserve_host_header": schema.BoolAttribute{
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
+				Description: "If true, preserve the Host header in forwarded requests",
 			},
-			"enable_cross_zone_load_balancing": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "avoid",
-				ValidateFunc: validation.StringInSlice([]string{
-					"full", "avoid", "off",
-				}, false),
+			"enable_cross_zone_load_balancing": schema.StringAttribute{
+				Optional:    true,
+				Computed:    true,
+				Default:     stringdefault.StaticString("avoid"),
+				Description: "Cross-zone load balancing mode",
+				Validators: []validator.String{
+					stringvalidator.OneOf("full", "avoid", "off"),
+				},
 			},
-			"client_keep_alive": {
-				Type:         schema.TypeInt,
-				Optional:     true,
-				Default:      3600,
-				ValidateFunc: validation.IntBetween(60, 604800),
+			"client_keep_alive": schema.Int64Attribute{
+				Optional:    true,
+				Computed:    true,
+				Default:     int64default.StaticInt64(3600),
+				Description: "The time in seconds to keep client connections alive",
+				Validators: []validator.Int64{
+					int64validator.Between(60, 604800),
+				},
 			},
-			"xff_header_processing_mode": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "append",
-				ValidateFunc: validation.StringInSlice([]string{
-					"append", "preserve", "remove",
-				}, false),
+			"xff_header_processing_mode": schema.StringAttribute{
+				Optional:    true,
+				Computed:    true,
+				Default:     stringdefault.StaticString("append"),
+				Description: "X-Forwarded-For header processing mode",
+				Validators: []validator.String{
+					stringvalidator.OneOf("append", "preserve", "remove"),
+				},
 			},
-			"tags": {
-				Type:     schema.TypeMap,
-				Optional: true,
-				Elem:     &schema.Schema{Type: schema.TypeString},
+			"tags": schema.MapAttribute{
+				Optional:    true,
+				ElementType: types.StringType,
+				Description: "A map of tags to assign to the resource",
 			},
-			"zone_id": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+			"zone_id": schema.StringAttribute{
+				Required:    true,
+				Description: "The ID of the zone",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
-			"zone_name": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+			"zone_name": schema.StringAttribute{
+				Required:    true,
+				Description: "The name of the zone",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
-			// Computed attributes
-			"dns_name": {
-				Type:     schema.TypeString,
-				Computed: true,
+			"dns_name": schema.StringAttribute{
+				Computed:    true,
+				Description: "The DNS name of the load balancer",
 			},
-			"state": {
-				Type:     schema.TypeString,
-				Computed: true,
+			"state": schema.StringAttribute{
+				Computed:    true,
+				Description: "The state of the load balancer",
 			},
 		},
 	}
 }
 
-func resourceHLBLoadBalancerCreate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*hlb.Client)
+func (r *loadBalancerResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	// Retrieve values from plan
+	var plan loadBalancerResourceModel
+	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
+	// Convert from plan model to API object
 	input := &hlb.LoadBalancerCreate{
-		AccessLogs:                   expandAccessLogs(d.Get("access_logs").([]interface{})),
-		ClientKeepAlive:              d.Get("client_keep_alive").(int),
-		EnableCrossZoneLoadBalancing: d.Get("enable_cross_zone_load_balancing").(string),
-		EnableDeletionProtection:     d.Get("enable_deletion_protection").(bool),
-		EnableHttp2:                  d.Get("enable_http2").(bool),
-		IdleTimeout:                  d.Get("idle_timeout").(int),
-		Internal:                     d.Get("internal").(bool),
-		IPAddressType:                d.Get("ip_address_type").(string),
-		LaunchConfig:                 expandLaunchConfig(d.Get("launch_config").([]interface{})),
-		Name:                         d.Get("name").(string),
-		NamePrefix:                   d.Get("name_prefix").(string),
-		PreserveHostHeader:           d.Get("preserve_host_header").(bool),
-		SecurityGroups:               expandStringSet(d.Get("security_groups").(*schema.Set)),
-		Subnets:                      expandStringSet(d.Get("subnets").(*schema.Set)),
-		Tags:                         *expandTags(d.Get("tags").(map[string]interface{})),
-		XffHeaderProcessingMode:      d.Get("xff_header_processing_mode").(string),
-		ZoneID:                       d.Get("zone_id").(string),
-		ZoneName:                     d.Get("zone_name").(string),
+		Name:                         plan.Name.ValueString(),
+		NamePrefix:                   plan.NamePrefix.ValueString(),
+		Internal:                     plan.Internal.ValueBool(),
+		EnableDeletionProtection:     plan.EnableDeletionProtection.ValueBool(),
+		EnableHttp2:                  plan.EnableHttp2.ValueBool(),
+		IdleTimeout:                  int(plan.IdleTimeout.ValueInt64()),
+		IPAddressType:                plan.IPAddressType.ValueString(),
+		PreserveHostHeader:           plan.PreserveHostHeader.ValueBool(),
+		EnableCrossZoneLoadBalancing: plan.EnableCrossZoneLoadBalancing.ValueString(),
+		ClientKeepAlive:              int(plan.ClientKeepAlive.ValueInt64()),
+		XffHeaderProcessingMode:      plan.XffHeaderProcessingMode.ValueString(),
+		ZoneID:                       plan.ZoneID.ValueString(),
+		ZoneName:                     plan.ZoneName.ValueString(),
 	}
 
-	lb, err := client.CreateLoadBalancer(ctx, input)
+	// Convert subnets from Set to []string
+	var subnets []string
+	diags = plan.Subnets.ElementsAs(ctx, &subnets, false)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	input.Subnets = subnets
+
+	// Convert security groups from Set to []string if present
+	if !plan.SecurityGroups.IsNull() {
+		var securityGroups []string
+		diags = plan.SecurityGroups.ElementsAs(ctx, &securityGroups, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		input.SecurityGroups = securityGroups
+	}
+
+	// Convert access logs if present
+	if !plan.AccessLogs.IsNull() {
+		var accessLogs []accessLogsModel
+		diags = plan.AccessLogs.ElementsAs(ctx, &accessLogs, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		if len(accessLogs) > 0 {
+			input.AccessLogs = &hlb.AccessLogs{
+				Bucket:  accessLogs[0].Bucket.ValueString(),
+				Prefix:  accessLogs[0].Prefix.ValueString(),
+				Enabled: accessLogs[0].Enabled.ValueBool(),
+			}
+		}
+	}
+
+	// Convert launch config if present
+	if !plan.LaunchConfig.IsNull() {
+		var launchConfig []launchConfigModel
+		diags = plan.LaunchConfig.ElementsAs(ctx, &launchConfig, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		if len(launchConfig) > 0 {
+			input.LaunchConfig = &hlb.LaunchConfig{
+				InstanceType:     launchConfig[0].InstanceType.ValueString(),
+				MinInstanceCount: int(launchConfig[0].MinInstanceCount.ValueInt64()),
+				MaxInstanceCount: int(launchConfig[0].MaxInstanceCount.ValueInt64()),
+				TargetCPUUsage:   int(launchConfig[0].TargetCPUUsage.ValueInt64()),
+			}
+		}
+	}
+
+	// Convert tags if present
+	if !plan.Tags.IsNull() {
+		tags := make(map[string]string)
+		diags = plan.Tags.ElementsAs(ctx, &tags, false)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		input.Tags = tags
+	}
+
+	// Create new load balancer
+	lb, err := r.client.CreateLoadBalancer(ctx, input)
 	if err != nil {
-		return diag.FromErr(err)
+		resp.Diagnostics.AddError(
+			"Error creating load balancer",
+			fmt.Sprintf("Could not create load balancer: %v", err),
+		)
+		return
 	}
 
-	d.SetId(lb.ID)
+	// Map response body to schema and populate Computed attribute values
+	plan.ID = types.StringValue(lb.ID)
+	plan.DNSName = types.StringValue(lb.DNSName)
+	plan.State = types.StringValue(lb.State)
 
-	return resourceHLBLoadBalancerRead(ctx, d, meta)
+	// Set state to fully populated data
+	diags = resp.State.Set(ctx, plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 }
 
-func resourceHLBLoadBalancerRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*hlb.Client)
+func (r *loadBalancerResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	// Get current state
+	var state loadBalancerResourceModel
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-	lb, err := client.GetLoadBalancer(ctx, d.Id())
+	// Get refreshed load balancer value from HLB
+	lb, err := r.client.GetLoadBalancer(ctx, state.ID.ValueString())
 	if err != nil {
-		return diag.FromErr(err)
+		resp.Diagnostics.AddError(
+			"Error Reading HLB Load Balancer",
+			fmt.Sprintf("Could not read HLB Load Balancer ID %s: %v", state.ID.ValueString(), err),
+		)
+		return
 	}
 
-	if lb.AccessLogs != nil {
-		d.Set("access_logs", []interface{}{flattenAccessLogs(lb.AccessLogs)})
-	} else {
-		d.Set("access_logs", nil)
-	}
-	d.Set("client_keep_alive", lb.ClientKeepAlive)
-	d.Set("dns_name", lb.DNSName)
-	d.Set("enable_cross_zone_load_balancing", lb.EnableCrossZoneLoadBalancing)
-	d.Set("enable_deletion_protection", lb.EnableDeletionProtection)
-	d.Set("enable_http2", lb.EnableHttp2)
-	d.Set("idle_timeout", lb.IdleTimeout)
-	d.Set("internal", lb.Internal)
-	d.Set("ip_address_type", lb.IPAddressType)
-	if lb.LaunchConfig != nil {
-		d.Set("launch_config", []interface{}{flattenLaunchConfig(lb.LaunchConfig)})
-	} else {
-		d.Set("launch_config", nil)
-	}
-	d.Set("name", lb.Name)
-	d.Set("preserve_host_header", lb.PreserveHostHeader)
-	d.Set("security_groups", lb.SecurityGroups)
-	d.Set("state", lb.State)
-	d.Set("subnets", lb.Subnets)
-	d.Set("tags", flattenTags(lb.Tags))
-	d.Set("xff_header_processing_mode", lb.XffHeaderProcessingMode)
-	d.Set("zone_id", lb.ZoneID)
-	d.Set("zone_name", lb.ZoneName)
+	// Overwrite items with refreshed state
+	state.DNSName = types.StringValue(lb.DNSName)
+	state.State = types.StringValue(lb.State)
+	state.Name = types.StringValue(lb.Name)
+	state.Internal = types.BoolValue(lb.Internal)
+	state.EnableDeletionProtection = types.BoolValue(lb.EnableDeletionProtection)
+	state.EnableHttp2 = types.BoolValue(lb.EnableHttp2)
+	state.IdleTimeout = types.Int64Value(int64(lb.IdleTimeout))
+	state.IPAddressType = types.StringValue(lb.IPAddressType)
+	state.PreserveHostHeader = types.BoolValue(lb.PreserveHostHeader)
+	state.EnableCrossZoneLoadBalancing = types.StringValue(lb.EnableCrossZoneLoadBalancing)
+	state.ClientKeepAlive = types.Int64Value(int64(lb.ClientKeepAlive))
+	state.XffHeaderProcessingMode = types.StringValue(lb.XffHeaderProcessingMode)
+	state.ZoneID = types.StringValue(lb.ZoneID)
+	state.ZoneName = types.StringValue(lb.ZoneName)
 
-	return nil
+	// Set refreshed state
+	diags = resp.State.Set(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 }
 
-func resourceHLBLoadBalancerUpdate(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*hlb.Client)
-
-	input := &hlb.LoadBalancerUpdate{
-		AccessLogs:     expandAccessLogs(d.Get("access_logs").([]interface{})),
-		SecurityGroups: expandStringSet(d.Get("security_groups").(*schema.Set)),
-		Tags:           expandTags(d.Get("tags").(map[string]interface{})),
+func (r *loadBalancerResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	// Retrieve values from plan
+	var plan loadBalancerResourceModel
+	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	if d.HasChange("name") {
-		v := d.Get("name").(string)
-		input.Name = &v
+	// Get current state
+	var state loadBalancerResourceModel
+	diags = req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	if d.HasChange("enable_deletion_protection") {
-		v := d.Get("enable_deletion_protection").(bool)
-		input.EnableDeletionProtection = &v
+	// Generate API request body from plan
+	input := &hlb.LoadBalancerUpdate{}
+
+	if !plan.Name.Equal(state.Name) {
+		name := plan.Name.ValueString()
+		input.Name = &name
 	}
 
-	if d.HasChange("enable_http2") {
-		v := d.Get("enable_http2").(bool)
-		input.EnableHttp2 = &v
+	if !plan.EnableDeletionProtection.Equal(state.EnableDeletionProtection) {
+		enableDeletionProtection := plan.EnableDeletionProtection.ValueBool()
+		input.EnableDeletionProtection = &enableDeletionProtection
 	}
 
-	if d.HasChange("idle_timeout") {
-		v := d.Get("idle_timeout").(int)
-		input.IdleTimeout = &v
+	if !plan.EnableHttp2.Equal(state.EnableHttp2) {
+		enableHttp2 := plan.EnableHttp2.ValueBool()
+		input.EnableHttp2 = &enableHttp2
 	}
 
-	if d.HasChange("preserve_host_header") {
-		v := d.Get("preserve_host_header").(bool)
-		input.PreserveHostHeader = &v
+	if !plan.IdleTimeout.Equal(state.IdleTimeout) {
+		idleTimeout := int(plan.IdleTimeout.ValueInt64())
+		input.IdleTimeout = &idleTimeout
 	}
 
-	if d.HasChange("enable_cross_zone_load_balancing") {
-		v := d.Get("enable_cross_zone_load_balancing").(string)
-		input.EnableCrossZoneLoadBalancing = &v
+	if !plan.PreserveHostHeader.Equal(state.PreserveHostHeader) {
+		preserveHostHeader := plan.PreserveHostHeader.ValueBool()
+		input.PreserveHostHeader = &preserveHostHeader
 	}
 
-	if d.HasChange("client_keep_alive") {
-		v := d.Get("client_keep_alive").(int)
-		input.ClientKeepAlive = &v
+	if !plan.EnableCrossZoneLoadBalancing.Equal(state.EnableCrossZoneLoadBalancing) {
+		enableCrossZoneLoadBalancing := plan.EnableCrossZoneLoadBalancing.ValueString()
+		input.EnableCrossZoneLoadBalancing = &enableCrossZoneLoadBalancing
 	}
 
-	if d.HasChange("xff_header_processing_mode") {
-		v := d.Get("xff_header_processing_mode").(string)
-		input.XffHeaderProcessingMode = &v
+	if !plan.ClientKeepAlive.Equal(state.ClientKeepAlive) {
+		clientKeepAlive := int(plan.ClientKeepAlive.ValueInt64())
+		input.ClientKeepAlive = &clientKeepAlive
 	}
 
-	if d.HasChange("launch_config") {
-		input.LaunchConfig = expandLaunchConfig(d.Get("launch_config").([]interface{}))
+	if !plan.XffHeaderProcessingMode.Equal(state.XffHeaderProcessingMode) {
+		xffHeaderProcessingMode := plan.XffHeaderProcessingMode.ValueString()
+		input.XffHeaderProcessingMode = &xffHeaderProcessingMode
 	}
 
-	_, err := client.UpdateLoadBalancer(ctx, d.Id(), input)
+	// Update existing load balancer
+	_, err := r.client.UpdateLoadBalancer(ctx, state.ID.ValueString(), input)
 	if err != nil {
-		return diag.FromErr(err)
+		resp.Diagnostics.AddError(
+			"Error Updating HLB Load Balancer",
+			fmt.Sprintf("Could not update load balancer %s: %v", state.ID.ValueString(), err),
+		)
+		return
 	}
 
-	return resourceHLBLoadBalancerRead(ctx, d, meta)
-}
-
-func resourceHLBLoadBalancerDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	client := meta.(*hlb.Client)
-
-	err := client.DeleteLoadBalancer(ctx, d.Id())
+	// Fetch updated items from GetLoadBalancer as UpdateLoadBalancer doesn't return the full item
+	lb, err := r.client.GetLoadBalancer(ctx, state.ID.ValueString())
 	if err != nil {
-		return diag.FromErr(err)
+		resp.Diagnostics.AddError(
+			"Error Reading HLB Load Balancer",
+			fmt.Sprintf("Could not read HLB Load Balancer %s: %v", state.ID.ValueString(), err),
+		)
+		return
 	}
 
-	return nil
-}
+	// Update resource state with updated items and timestamp
+	plan.ID = types.StringValue(lb.ID)
+	plan.DNSName = types.StringValue(lb.DNSName)
+	plan.State = types.StringValue(lb.State)
 
-func expandStringSet(set *schema.Set) []string {
-	result := make([]string, set.Len())
-	for i, v := range set.List() {
-		result[i] = v.(string)
-	}
-	return result
-}
-
-func expandAccessLogs(l []interface{}) *hlb.AccessLogs {
-	if len(l) == 0 || l[0] == nil {
-		return nil
-	}
-
-	m := l[0].(map[string]interface{})
-
-	accessLogs := &hlb.AccessLogs{
-		Enabled: m["enabled"].(bool),
-		Bucket:  m["bucket"].(string),
-		Prefix:  m["prefix"].(string),
-	}
-
-	return accessLogs
-}
-
-func flattenAccessLogs(accessLogs *hlb.AccessLogs) map[string]interface{} {
-	if accessLogs == nil {
-		return nil
-	}
-
-	return map[string]interface{}{
-		"enabled": accessLogs.Enabled,
-		"bucket":  accessLogs.Bucket,
-		"prefix":  accessLogs.Prefix,
+	// Set state to fully populated data
+	diags = resp.State.Set(ctx, plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 }
 
-func expandLaunchConfig(l []interface{}) *hlb.LaunchConfig {
-	if len(l) == 0 || l[0] == nil {
-		return nil
+func (r *loadBalancerResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	// Retrieve values from state
+	var state loadBalancerResourceModel
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	m := l[0].(map[string]interface{})
-
-	launchConfig := &hlb.LaunchConfig{
-		InstanceType:     m["instance_type"].(string),
-		MinInstanceCount: m["min_instance_count"].(int),
-		MaxInstanceCount: m["max_instance_count"].(int),
-		TargetCPUUsage:   m["target_cpu_usage"].(int),
-	}
-
-	return launchConfig
-}
-
-func flattenLaunchConfig(launchConfig *hlb.LaunchConfig) map[string]interface{} {
-	if launchConfig == nil {
-		return nil
-	}
-
-	return map[string]interface{}{
-		"instance_type":      launchConfig.InstanceType,
-		"min_instance_count": launchConfig.MinInstanceCount,
-		"max_instance_count": launchConfig.MaxInstanceCount,
-		"target_cpu_usage":   launchConfig.TargetCPUUsage,
+	// Delete existing load balancer
+	err := r.client.DeleteLoadBalancer(ctx, state.ID.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error Deleting HLB Load Balancer",
+			fmt.Sprintf("Could not delete load balancer %s: %v", state.ID.ValueString(), err),
+		)
+		return
 	}
 }
 
-func expandTags(m map[string]interface{}) *map[string]string {
-	result := make(map[string]string, len(m))
-	for k, v := range m {
-		result[k] = v.(string)
-	}
-	return &result
-}
-
-func flattenTags(tags map[string]string) map[string]interface{} {
-	result := make(map[string]interface{}, len(tags))
-	for k, v := range tags {
-		result[k] = v
-	}
-	return result
+func (r *loadBalancerResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	// Retrieve import ID and save to id attribute
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
