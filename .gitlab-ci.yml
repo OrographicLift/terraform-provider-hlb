@@ -28,6 +28,8 @@ build:
     - aws
   script:
     - go build -o terraform-provider-hlb
+    - go build -o zonehero ./cmd/zonehero
   artifacts:
     paths:
       - terraform-provider-hlb
+      - zonehero

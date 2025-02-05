@@ -17,9 +17,21 @@ terraform {
 }
 
 provider "hlb" {
-  # Configuration options
+  api_key     = "your-api-key"
+  aws_region  = "us-west-2"    # Optional, will use AWS_REGION env var if not specified
+  aws_profile = "my-profile"   # Optional, will use default AWS authentication if not specified
+  partition   = "aws"          # Optional, defaults to "aws". Use "aws-dev" for development environment
 }
 ```
+
+### Provider Arguments
+
+The following arguments are supported:
+
+* `api_key` - (Required) Your HLB API key
+* `aws_region` - (Optional) AWS region to use. If not specified, will use AWS_REGION environment variable
+* `aws_profile` - (Optional) AWS profile to use. If not specified, will use default AWS authentication
+* `partition` - (Optional) Partition to use. Valid values are "aws" (default) for production and "aws-dev" for development environment
 
 ## Resources
 

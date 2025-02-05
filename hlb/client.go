@@ -19,20 +19,22 @@ import (
 
 const (
 	defaultMaxRetries = 5
-	defaultBaseURL    = "https://hlb.%s.aws-dev.zonehero.cloud/v1"
+	defaultBaseURL    = "https://hlb.%s.%s.zonehero.cloud/v1"
+	defaultPartition  = "aws"
 )
 
 type Client struct {
 	httpClient  *retryablehttp.Client
 	baseURL     string
 	apiKey      string
+	partition   string
 	awsConfig   aws.Config
 	accountID   string
 	credentials *Credentials
 	debug       bool
 }
 
-func NewClient(ctx context.Context, apiKey string, awsConfig aws.Config) (*Client, error) {
+func NewClient(ctx context.Context, apiKey string, awsConfig aws.Config, partition string) (*Client, error) {
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = defaultMaxRetries
 	retryClient.RetryWaitMin = 1 * time.Second
@@ -47,13 +49,18 @@ func NewClient(ctx context.Context, apiKey string, awsConfig aws.Config) (*Clien
 		return nil, err
 	}
 
+	if partition == "" {
+		partition = defaultPartition
+	}
+
 	return &Client{
 		httpClient:  retryClient,
-		baseURL:     fmt.Sprintf(defaultBaseURL, awsConfig.Region),
+		baseURL:     fmt.Sprintf(defaultBaseURL, awsConfig.Region, partition),
 		apiKey:      apiKey,
 		awsConfig:   awsConfig,
 		accountID:   credentials.AccountID,
 		credentials: credentials,
+		partition:   partition,
 		debug:       false,
 	}, nil
 }
