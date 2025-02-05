@@ -1,0 +1,44 @@
+# This GitHub action can publish assets for release when a tag is created.
+# Currently its setup to run on any tag that matches the pattern "v*" (ie. v0.1.0).
+#
+# This uses an action (hashicorp/ghaction-import-gpg) that assumes you set your 
+# private key in the `ZONEHERO_RELEASES_KEY` secret and passphrase in the `PASSPHRASE`
+# secret that contains the passphrase for your GPG private key.
+#
+# You will need to pass the `--batch` flag to `gpg` in your signing step 
+# in `goreleaser` to indicate this is being used in a non-interactive mode.
+#
+name: release
+on:
+  push:
+    tags:
+      - 'v*'
+permissions:
+  contents: write
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23'
+          check-latest: true
+      - name: Import GPG key
+        uses: hashicorp/ghaction-import-gpg@v2.1.0
+        env:
+          # Name of the secret containing the GPG private key
+          GPG_PRIVATE_KEY: ${{ secrets.ZONEHERO_RELEASES_KEY }}
+          PASSPHRASE: ${{ secrets.PASSPHRASE }}
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
