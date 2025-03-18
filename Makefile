@@ -1,6 +1,6 @@
 VERSION := 1.0.0
 HOSTNAME := registry.terraform.io
-NAMESPACE := zonehero
+NAMESPACE := orographiclift
 NAME := hlb
 BINARY := terraform-provider-${NAME}
 CLI_BINARY := zonehero
@@ -51,9 +51,9 @@ fmt:
 lint:
 	golangci-lint run
 
-# Optional: Generate documentation
+# Generate documentation using tfplugindocs
 docs:
-	go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs
+	go generate ./...
 
 all: build cli
 
