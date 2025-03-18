@@ -1,4 +1,4 @@
-image: golang:1.23
+image: golang:1.24
 
 variables:
   GOPATH: $CI_PROJECT_DIR/.go
@@ -8,12 +8,23 @@ cache:
     - .go/pkg/mod/
 
 stages:
+  - docs
   - build
   - test
 
 before_script:
   - mkdir -p .go
   - go mod download
+
+verify_docs:
+  stage: docs
+  tags:
+    - aws
+  script:
+    - go tool tfplugindocs generate --provider-dir . --provider-name hlb
+    # Git will show differences between working tree (newly generated docs) and index (committed docs)
+    - git diff --exit-code docs/
+    # If there are differences, the command will exit with non-zero status, failing the job
 
 unit_tests:
   stage: test

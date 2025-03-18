@@ -15,9 +15,11 @@ type LoadBalancer struct {
 	AccessLogs                   *AccessLogs       `json:"accessLogs,omitempty"`
 	AccountID                    string            `json:"accountId"`
 	ClientKeepAlive              int               `json:"clientKeepAlive"`
+	ConnectionDrainingTimeout    int               `json:"connectionDrainingTimeout"`
 	CreatedAt                    time.Time         `json:"createdAt"`
 	DeploymentStatus             *DeploymentStatus `json:"deploymentStatus,omitempty"`
 	DNSName                      string            `json:"dnsName"`
+	Ec2IamRole                   string            `json:"ec2IamRole"`
 	EnableCrossZoneLoadBalancing string            `json:"enableCrossZoneLoadBalancing"`
 	EnableDeletionProtection     bool              `json:"enableDeletionProtection"`
 	EnableHttp2                  bool              `json:"enableHttp2"`
@@ -28,6 +30,7 @@ type LoadBalancer struct {
 	IPAddressType                string            `json:"ipAddressType"`
 	LaunchConfig                 *LaunchConfig     `json:"launchConfig,omitempty"`
 	Name                         string            `json:"name"`
+	PreferredMaintenanceWindow   string            `json:"preferredMaintenanceWindow"`
 	PreserveHostHeader           bool              `json:"preserveHostHeader"`
 	SecurityGroups               []string          `json:"securityGroups"`
 	State                        string            `json:"state"`
@@ -62,6 +65,8 @@ type AccessLogs struct {
 type LoadBalancerCreate struct {
 	AccessLogs                   *AccessLogs       `json:"accessLogs"`
 	ClientKeepAlive              int               `json:"clientKeepAlive"`
+	ConnectionDrainingTimeout    int               `json:"connectionDrainingTimeout"`
+	Ec2IamRole                   string            `json:"ec2IamRole"`
 	EnableCrossZoneLoadBalancing string            `json:"enableCrossZoneLoadBalancing"`
 	EnableDeletionProtection     bool              `json:"enableDeletionProtection"`
 	EnableHttp2                  bool              `json:"enableHttp2"`
@@ -71,6 +76,7 @@ type LoadBalancerCreate struct {
 	LaunchConfig                 *LaunchConfig     `json:"launchConfig"`
 	Name                         string            `json:"name"`
 	NamePrefix                   string            `json:"namePrefix"`
+	PreferredMaintenanceWindow   string            `json:"preferredMaintenanceWindow"`
 	PreserveHostHeader           bool              `json:"preserveHostHeader"`
 	SecurityGroups               []string          `json:"securityGroups"`
 	Subnets                      []string          `json:"subnets"`
@@ -83,12 +89,15 @@ type LoadBalancerCreate struct {
 type LoadBalancerUpdate struct {
 	AccessLogs                   *AccessLogs        `json:"accessLogs"`
 	ClientKeepAlive              *int               `json:"clientKeepAlive"`
+	ConnectionDrainingTimeout    *int               `json:"connectionDrainingTimeout"`
+	Ec2IamRole                   *string            `json:"ec2IamRole"`
 	EnableCrossZoneLoadBalancing *string            `json:"enableCrossZoneLoadBalancing"`
 	EnableDeletionProtection     *bool              `json:"enableDeletionProtection"`
 	EnableHttp2                  *bool              `json:"enableHttp2"`
 	IdleTimeout                  *int               `json:"idleTimeout"`
 	LaunchConfig                 *LaunchConfig      `json:"launchConfig"`
 	Name                         *string            `json:"name"`
+	PreferredMaintenanceWindow   *string            `json:"preferredMaintenanceWindow"`
 	PreserveHostHeader           *bool              `json:"preserveHostHeader"`
 	SecurityGroups               []string           `json:"securityGroups"`
 	Tags                         *map[string]string `json:"tags"`
@@ -99,6 +108,11 @@ const (
 	LBCrossAZPolicyAvoid   = "avoid"
 	LBCrossAZPolicyFull    = "full"
 	LBCrossAZPolicyOff     = "off"
+	LBEc2IamRoleDebug      = "lb-ssm"
+	LBEc2IamRoleStandard   = "lb-standard"
+	LBIpAddressDualStack   = "dualstack"
+	LBIpAddressTypeV4Only  = "ipv4"
+	LBIpAddressTypeV6Only  = "dualstack-without-public-ipv4"
 	LBStateActive          = "active"
 	LBStateCreating        = "creating"
 	LBStateDeleted         = "deleted"
