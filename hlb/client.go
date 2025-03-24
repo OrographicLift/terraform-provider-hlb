@@ -18,14 +18,16 @@ import (
 )
 
 const (
-	defaultMaxRetries = 5
-	defaultBaseURL    = "https://hlb.%s.%s.zonehero.cloud/v1"
-	defaultPartition  = "aws"
+	defaultMaxRetries   = 5
+	defaultBaseHostname = "hlb.%s.%s.zonehero.cloud"
+	defaultBaseURL      = "https://%s/v1"
+	defaultPartition    = "aws"
 )
 
 type Client struct {
 	httpClient  *retryablehttp.Client
 	baseURL     string
+	hostname    string
 	apiKey      string
 	partition   string
 	awsConfig   aws.Config
@@ -44,7 +46,8 @@ func NewClient(ctx context.Context, apiKey string, awsConfig aws.Config, partiti
 	// Disable default debug logging
 	retryClient.Logger = nil
 
-	credentials, err := loadOrCreateCredentials(ctx, apiKey, awsConfig)
+	hostname := fmt.Sprintf(defaultBaseHostname, awsConfig.Region, partition)
+	credentials, err := loadOrCreateCredentials(ctx, apiKey, awsConfig, hostname)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +58,8 @@ func NewClient(ctx context.Context, apiKey string, awsConfig aws.Config, partiti
 
 	return &Client{
 		httpClient:  retryClient,
-		baseURL:     fmt.Sprintf(defaultBaseURL, awsConfig.Region, partition),
+		baseURL:     fmt.Sprintf(defaultBaseURL, hostname),
+		hostname:    hostname,
 		apiKey:      apiKey,
 		awsConfig:   awsConfig,
 		accountID:   credentials.AccountID,
@@ -89,7 +93,7 @@ func (c *Client) sendRequest(ctx context.Context, method, path string, body inte
 		log.Printf("[DEBUG] %s %s", method, url)
 	}
 
-	XSTSGCIHeaders, err := getSCDIHeader(ctx, c.awsConfig, c.credentials)
+	XSTSGCIHeaders, err := getSCDIHeader(ctx, c.awsConfig, c.credentials, c.hostname)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate API credentials: %w", err)
 	}

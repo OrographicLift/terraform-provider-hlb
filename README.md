@@ -7,6 +7,7 @@ The HLB (Hero Load Balancer) Terraform Provider allows you to manage HLB resourc
 - Manage Hosted Load Balancers (HLBs) as Terraform resources
 - Configure listeners for your HLBs
 - Integrate HLB provisioning into your existing infrastructure-as-code workflows
+- IAM based authentication
 
 ## Requirements
 

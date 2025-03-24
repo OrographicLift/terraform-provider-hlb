@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 	ini "gopkg.in/ini.v1"
 )
 
@@ -30,9 +31,9 @@ type Credentials struct {
 	AccountID      string
 }
 
-func getSCDIHeader(ctx context.Context, cfg aws.Config, credentials *Credentials) (string, error) {
+func getSCDIHeader(ctx context.Context, cfg aws.Config, credentials *Credentials, hostname string) (string, error) {
 	if time.Now().After(credentials.Expiry) {
-		headers, err := generateSTSHeaders(ctx, cfg, credentials.AccountID)
+		headers, err := generateSTSHeaders(ctx, cfg, credentials.AccountID, hostname)
 		if err != nil {
 			return "", fmt.Errorf("failed to generate STS headers: %w", err)
 		}
@@ -47,7 +48,7 @@ func getSCDIHeader(ctx context.Context, cfg aws.Config, credentials *Credentials
 	return credentials.XSTSGCIHeaders, nil
 }
 
-func loadOrCreateCredentials(ctx context.Context, apiKey string, cfg aws.Config) (*Credentials, error) {
+func loadOrCreateCredentials(ctx context.Context, apiKey string, cfg aws.Config, hostname string) (*Credentials, error) {
 	var credentials *Credentials
 	var accountID string
 	credentials, err := loadCredentials(apiKey, cfg.Region)
@@ -63,7 +64,8 @@ func loadOrCreateCredentials(ctx context.Context, apiKey string, cfg aws.Config)
 		}
 		accountID = *result.Account
 
-		headers, err := generateSTSHeaders(ctx, cfg, accountID)
+		// Use the provided hostname for initial credentials
+		headers, err := generateSTSHeaders(ctx, cfg, accountID, hostname)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate STS headers: %w", err)
 		}
@@ -159,7 +161,7 @@ func getSTSClient(ctx context.Context, cfg aws.Config, accountID string) (*sts.C
 
 	assumedCredentialsProvider := credentials.NewStaticCredentialsProvider(
 		*assumeRoleOutput.Credentials.AccessKeyId,
-		*assumeRoleOutput.Credentials.SecretAccessKey, 
+		*assumeRoleOutput.Credentials.SecretAccessKey,
 		*assumeRoleOutput.Credentials.SessionToken)
 
 	// Create a new config with the assumed role credentials
@@ -177,14 +179,19 @@ func getSTSClient(ctx context.Context, cfg aws.Config, accountID string) (*sts.C
 	return assumedSTSClient, nil
 }
 
-func generateSTSHeaders(ctx context.Context, cfg aws.Config, accountID string) (string, error) {
+func generateSTSHeaders(ctx context.Context, cfg aws.Config, accountID string, hostname string) (string, error) {
 	assumedSTSClient, err := getSTSClient(ctx, cfg, accountID)
 	if err != nil {
 		return "", err
 	}
 
 	presigner := sts.NewPresignClient(assumedSTSClient)
-	presignedURL, err := presigner.PresignGetCallerIdentity(ctx, &sts.GetCallerIdentityInput{}, func(opts *sts.PresignOptions) {})
+	presignedURL, err := presigner.PresignGetCallerIdentity(ctx, &sts.GetCallerIdentityInput{}, func(opts *sts.PresignOptions) {
+		opts.ClientOptions = append(opts.ClientOptions, func(stsOptions *sts.Options) {
+			// Add the x-hlb-endpoint header
+			stsOptions.APIOptions = append(stsOptions.APIOptions, smithyhttp.SetHeaderValue("x-hlb-endpoint", hostname))
+		})
+	})
 	if err != nil {
 		return "", fmt.Errorf("failed to presign request: %w", err)
 	}
