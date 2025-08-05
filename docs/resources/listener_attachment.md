@@ -42,6 +42,8 @@ Note: The security groups associated with the load balancer must allow inbound t
 * `HTTP` - For unencrypted HTTP traffic
 * `HTTPS` - For encrypted HTTPS traffic. When using HTTPS, you must also specify a `certificate_secrets_name`
 
+* `UDP` - For raw unencrypted UDP traffic
+
 The protocol cannot be changed after the listener is created - you must create a new listener to change protocols.
 - `target_group_arn` (String) The Amazon Resource Name (ARN) of the target group to route traffic to. The target group defines where traffic will be sent (the backend instances, IP addresses, or other resources) and how health checks are performed. The target group must be in the same region as the load balancer.
 
