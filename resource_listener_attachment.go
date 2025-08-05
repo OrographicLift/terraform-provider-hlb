@@ -157,11 +157,13 @@ func (r *listenerAttachmentResource) Schema(_ context.Context, _ resource.Schema
 				MarkdownDescription: "The protocol for connections from clients to the load balancer. Valid values:\n\n" +
 					"* `HTTP` - For unencrypted HTTP traffic\n" +
 					"* `HTTPS` - For encrypted HTTPS traffic. When using HTTPS, you must also specify a `certificate_secrets_name`\n\n" +
+					"* `UDP` - For raw unencrypted UDP traffic\n\n" +
 					"The protocol cannot be changed after the listener is created - you must create a new listener to change protocols.",
 				Validators: []validator.String{
 					stringvalidator.OneOf(
 						"HTTP",
 						"HTTPS",
+						"UDP",
 					),
 				},
 			},
