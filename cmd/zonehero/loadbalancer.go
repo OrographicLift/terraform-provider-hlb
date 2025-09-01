@@ -23,13 +23,19 @@ func init() {
 	listLoadBalancersCmd.Flags().String("next-token", "", "Token for pagination")
 
 	// Create Load Balancer Flags
-	createLoadBalancerCmd.Flags().StringP("name", "n", "", "Name of the load balancer")
 	createLoadBalancerCmd.Flags().BoolP("internal", "i", false, "Whether the load balancer is internal")
-	createLoadBalancerCmd.Flags().StringSliceP("subnets", "s", []string{}, "Subnets for the load balancer")
-	createLoadBalancerCmd.Flags().StringSliceP("security-groups", "g", []string{}, "Security groups for the load balancer")
 	createLoadBalancerCmd.Flags().String("input-json", "", "JSON file containing load balancer configuration")
+	createLoadBalancerCmd.Flags().String("zone-id", "", "Route53 zone ID in which to create the records for the load balancer")
+	createLoadBalancerCmd.Flags().String("zone-name", "", "Route53 zone name in which to create the records for the load balancer")
+	createLoadBalancerCmd.Flags().StringP("ec2-iam-role", "", "lb-standard", "EC2 IAM role to assign to load balancer instances")
+	createLoadBalancerCmd.Flags().StringP("ip-address-type", "t", "ipv4", "ipv4, dualstack, or dualstack-without-public-ipv4")
+	createLoadBalancerCmd.Flags().StringP("name", "n", "", "Name of the load balancer")
+	createLoadBalancerCmd.Flags().StringSliceP("security-groups", "g", []string{}, "Security groups for the load balancer")
+	createLoadBalancerCmd.Flags().StringSliceP("subnets", "s", []string{}, "Subnets for the load balancer")
 	createLoadBalancerCmd.MarkFlagRequired("name")
 	createLoadBalancerCmd.MarkFlagRequired("subnets")
+	createLoadBalancerCmd.MarkFlagRequired("zone-id")
+	createLoadBalancerCmd.MarkFlagRequired("zone-name")
 
 	// Update Load Balancer Flags
 	updateLoadBalancerCmd.Flags().String("id", "", "ID of the load balancer to update")
@@ -137,12 +143,20 @@ var createLoadBalancerCmd = &cobra.Command{
 			internal, _ := cmd.Flags().GetBool("internal")
 			subnets, _ := cmd.Flags().GetStringSlice("subnets")
 			securityGroups, _ := cmd.Flags().GetStringSlice("security-groups")
+			ipAddresstype, _ := cmd.Flags().GetString("ip-address-type")
+			zoneId, _ := cmd.Flags().GetString("zone-id")
+			zoneName, _ := cmd.Flags().GetString("zone-name")
+			ec2IamRole, _ := cmd.Flags().GetString("ec2-iam-role")
 
 			input = hlb.LoadBalancerCreate{
+				Ec2IamRole:     ec2IamRole,
 				Name:           name,
 				Internal:       internal,
+				IPAddressType:  ipAddresstype,
 				Subnets:        subnets,
 				SecurityGroups: securityGroups,
+				ZoneID:         zoneId,
+				ZoneName:       zoneName,
 			}
 		}
 
