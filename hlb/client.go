@@ -24,6 +24,26 @@ const (
 	defaultPartition    = "aws"
 )
 
+// APIErrorResponse represents the error structure returned by the HLB API
+type APIErrorResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+// Error represents an error from HLB library operations
+type Error struct {
+	StatusCode int
+	Code       int
+	Message    string
+}
+
+func (e *Error) Error() string {
+	if e.Message != "" {
+		return fmt.Sprintf("API request failed with status code %d: %s", e.StatusCode, e.Message)
+	}
+	return fmt.Sprintf("API request failed with status code: %d", e.StatusCode)
+}
+
 type Client struct {
 	httpClient  *retryablehttp.Client
 	baseURL     string
@@ -125,7 +145,28 @@ func (c *Client) sendRequest(ctx context.Context, method, path string, body inte
 	}
 
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("API request failed with status code: %d", resp.StatusCode)
+		// Create structured error
+		hlbErr := &Error{
+			StatusCode: resp.StatusCode,
+		}
+
+		// Try to read and parse the error response
+		bodyBytes, err := io.ReadAll(resp.Body)
+		resp.Body.Close() // Close the body since we won't use it anymore
+
+		if err == nil && len(bodyBytes) > 0 {
+			if c.debug {
+				log.Printf("[DEBUG] Error response body: %s", string(bodyBytes))
+			}
+
+			var apiErrResp APIErrorResponse
+			if json.Unmarshal(bodyBytes, &apiErrResp) == nil {
+				hlbErr.Code = apiErrResp.Code
+				hlbErr.Message = apiErrResp.Message
+			}
+		}
+
+		return nil, hlbErr
 	}
 
 	if c.debug && resp.Body != nil {
