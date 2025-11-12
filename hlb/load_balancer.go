@@ -153,7 +153,7 @@ func (c *Client) waitForLoadBalancerState(ctx context.Context, id string, target
 		var err error
 		lb, err = c.GetLoadBalancer(ctx, id)
 		if err != nil {
-			return retry.NonRetryableError(fmt.Errorf("error getting load balancer (%s): %w", id, err))
+			return retry.NonRetryableError(NewErrorf("error getting load balancer (%s): %w", id, err))
 		}
 
 		if lb.State == LBStateFailed {
@@ -161,7 +161,7 @@ func (c *Client) waitForLoadBalancerState(ctx context.Context, id string, target
 			if lb.DeploymentStatus != nil && lb.DeploymentStatus.ErrorMessage != "" {
 				extendedErrorMessage = lb.DeploymentStatus.ErrorMessage
 			}
-			return retry.NonRetryableError(fmt.Errorf("load balancer (%s) entered failed state, with message '%s'", id, extendedErrorMessage))
+			return retry.NonRetryableError(NewErrorf("load balancer (%s) entered failed state, with message '%s'", id, extendedErrorMessage))
 		}
 
 		if targetStates[lb.State] {
@@ -169,10 +169,10 @@ func (c *Client) waitForLoadBalancerState(ctx context.Context, id string, target
 		}
 
 		if isLoadBalancerInPendingState(lb.State) {
-			return retry.RetryableError(fmt.Errorf("expected load balancer (%s) to be in state %v but was in state %s", id, target, lb.State))
+			return retry.RetryableError(NewErrorf("expected load balancer (%s) to be in state %v but was in state %s", id, target, lb.State))
 		}
 
-		return retry.NonRetryableError(fmt.Errorf("load balancer (%s) entered unexpected state %s", id, lb.State))
+		return retry.NonRetryableError(NewErrorf("load balancer (%s) entered unexpected state %s", id, lb.State))
 	})
 
 	if err != nil {
@@ -199,7 +199,7 @@ func (c *Client) ListLoadBalancers(ctx context.Context, limit int, nextToken str
 		NextToken string         `json:"nextToken"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, "", fmt.Errorf("failed to decode response: %w", err)
+		return nil, "", NewErrorf("failed to decode response: %w", err)
 	}
 
 	return response.Items, response.NextToken, nil
@@ -214,7 +214,7 @@ func (c *Client) CreateLoadBalancer(ctx context.Context, input *LoadBalancerCrea
 
 	var lb LoadBalancer
 	if err := json.NewDecoder(resp.Body).Decode(&lb); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+		return nil, NewErrorf("failed to decode response: %w", err)
 	}
 
 	// Wait for the load balancer to be active
@@ -230,7 +230,7 @@ func (c *Client) GetLoadBalancer(ctx context.Context, loadBalancerID string) (*L
 
 	var lb LoadBalancer
 	if err := json.NewDecoder(resp.Body).Decode(&lb); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+		return nil, NewErrorf("failed to decode response: %w", err)
 	}
 
 	return &lb, nil
@@ -245,7 +245,7 @@ func (c *Client) UpdateLoadBalancer(ctx context.Context, loadBalancerID string, 
 
 	var lb LoadBalancer
 	if err := json.NewDecoder(resp.Body).Decode(&lb); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+		return nil, NewErrorf("failed to decode response: %w", err)
 	}
 
 	// Wait for the load balancer to be active after update

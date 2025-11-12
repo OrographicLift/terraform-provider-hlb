@@ -24,26 +24,6 @@ const (
 	defaultPartition    = "aws"
 )
 
-// APIErrorResponse represents the error structure returned by the HLB API
-type APIErrorResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
-
-// Error represents an error from HLB library operations
-type Error struct {
-	StatusCode int
-	Code       int
-	Message    string
-}
-
-func (e *Error) Error() string {
-	if e.Message != "" {
-		return fmt.Sprintf("API request failed with status code %d: %s", e.StatusCode, e.Message)
-	}
-	return fmt.Sprintf("API request failed with status code: %d", e.StatusCode)
-}
-
 type Client struct {
 	httpClient  *retryablehttp.Client
 	baseURL     string
@@ -147,7 +127,7 @@ func (c *Client) sendRequest(ctx context.Context, method, path string, body inte
 	if resp.StatusCode >= 400 {
 		// Create structured error
 		hlbErr := &Error{
-			StatusCode: resp.StatusCode,
+			Message: fmt.Sprintf("API request failed with HTTP %d", resp.StatusCode),
 		}
 
 		// Try to read and parse the error response
@@ -161,8 +141,7 @@ func (c *Client) sendRequest(ctx context.Context, method, path string, body inte
 
 			var apiErrResp APIErrorResponse
 			if json.Unmarshal(bodyBytes, &apiErrResp) == nil {
-				hlbErr.Code = apiErrResp.Code
-				hlbErr.Message = apiErrResp.Message
+				hlbErr.APIResponse = &apiErrResp
 			}
 		}
 
