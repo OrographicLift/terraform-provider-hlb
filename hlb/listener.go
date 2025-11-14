@@ -51,7 +51,7 @@ func (c *Client) CreateListener(ctx context.Context, loadBalancerID string, inpu
 
 	var listener Listener
 	if err := json.NewDecoder(resp.Body).Decode(&listener); err != nil {
-		return nil, NewErrorf("failed to decode response: %w", err)
+		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	return &listener, nil
@@ -66,7 +66,7 @@ func (c *Client) GetListener(ctx context.Context, loadBalancerID, listenerID str
 
 	var listener Listener
 	if err := json.NewDecoder(resp.Body).Decode(&listener); err != nil {
-		return nil, NewErrorf("failed to decode response: %w", err)
+		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	return &listener, nil
@@ -81,7 +81,7 @@ func (c *Client) UpdateListener(ctx context.Context, loadBalancerID, listenerID 
 
 	var listener Listener
 	if err := json.NewDecoder(resp.Body).Decode(&listener); err != nil {
-		return nil, NewErrorf("failed to decode response: %w", err)
+		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	return &listener, nil
@@ -113,7 +113,7 @@ func (c *Client) ListListeners(ctx context.Context, loadBalancerID string, limit
 		NextToken string     `json:"nextToken"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, "", NewErrorf("failed to decode response: %w", err)
+		return nil, "", fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	return response.Items, response.NextToken, nil
