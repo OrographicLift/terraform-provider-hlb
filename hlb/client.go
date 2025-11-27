@@ -125,7 +125,23 @@ func (c *Client) sendRequest(ctx context.Context, method, path string, body inte
 	}
 
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("API request failed with status code: %d", resp.StatusCode)
+		// Try to read and parse the error response
+		bodyBytes, err := io.ReadAll(resp.Body)
+		resp.Body.Close() // Close the body since we won't use it anymore
+
+		if err == nil && len(bodyBytes) > 0 {
+			if c.debug {
+				log.Printf("[DEBUG] Error response body: %s", string(bodyBytes))
+			}
+
+			var apiErr APIErrorResponse
+			if json.Unmarshal(bodyBytes, &apiErr) == nil {
+				return nil, &apiErr
+			}
+		}
+
+		// Fallback if we couldn't parse the error response
+		return nil, fmt.Errorf("API request failed with HTTP status %d", resp.StatusCode)
 	}
 
 	if c.debug && resp.Body != nil {

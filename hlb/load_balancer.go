@@ -153,7 +153,7 @@ func (c *Client) waitForLoadBalancerState(ctx context.Context, id string, target
 		var err error
 		lb, err = c.GetLoadBalancer(ctx, id)
 		if err != nil {
-			return retry.NonRetryableError(fmt.Errorf("error getting load balancer (%s): %w", id, err))
+			return retry.NonRetryableError(err)
 		}
 
 		if lb.State == LBStateFailed {
