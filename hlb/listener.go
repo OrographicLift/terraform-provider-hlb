@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"time"
 )
 
@@ -97,12 +98,12 @@ func (c *Client) DeleteListener(ctx context.Context, loadBalancerID, listenerID 
 }
 
 func (c *Client) ListListeners(ctx context.Context, loadBalancerID string, limit int, nextToken string) ([]Listener, string, error) {
-	url := fmt.Sprintf("/aws_account/%s/load-balancers/%s/listeners?limit=%d", c.accountID, loadBalancerID, limit)
+	urlPath := fmt.Sprintf("/aws_account/%s/load-balancers/%s/listeners?limit=%d", c.accountID, loadBalancerID, limit)
 	if nextToken != "" {
-		url += fmt.Sprintf("&nextToken=%s", nextToken)
+		urlPath += fmt.Sprintf("&nextToken=%s", url.QueryEscape(nextToken))
 	}
 
-	resp, err := c.sendRequest(ctx, "GET", url, nil)
+	resp, err := c.sendRequest(ctx, "GET", urlPath, nil)
 	if err != nil {
 		return nil, "", err
 	}

@@ -84,7 +84,7 @@ var listLoadBalancersCmd = &cobra.Command{
 		w.Flush()
 
 		if newNextToken != "" {
-			fmt.Printf("\nUse --next-token %s to get the next page\n", newNextToken)
+			fmt.Printf("\nUse --next-token '%s' to get the next page\n", newNextToken)
 		}
 
 		return nil

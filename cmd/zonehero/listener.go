@@ -20,6 +20,8 @@ func init() {
 
 	// List Listeners Flags
 	listListenersCmd.Flags().String("load-balancer-id", "", "ID of the load balancer")
+	listListenersCmd.Flags().Int("limit", 20, "Maximum number of items to return")
+	listListenersCmd.Flags().String("next-token", "", "Token for pagination")
 	listListenersCmd.MarkFlagRequired("load-balancer-id")
 
 	// Create Listener Flags
@@ -69,13 +71,19 @@ var listListenersCmd = &cobra.Command{
 		}
 
 		lbID, _ := cmd.Flags().GetString("load-balancer-id")
-		listeners, _, err := client.ListListeners(cmd.Context(), lbID, 100, "")
+		limit, _ := cmd.Flags().GetInt("limit")
+		nextToken, _ := cmd.Flags().GetString("next-token")
+
+		listeners, newNextToken, err := client.ListListeners(cmd.Context(), lbID, limit, nextToken)
 		if err != nil {
 			return err
 		}
 
 		if output == "json" {
-			return json.NewEncoder(os.Stdout).Encode(listeners)
+			return json.NewEncoder(os.Stdout).Encode(map[string]interface{}{
+				"items":     listeners,
+				"nextToken": newNextToken,
+			})
 		}
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
@@ -83,7 +91,13 @@ var listListenersCmd = &cobra.Command{
 		for _, l := range listeners {
 			fmt.Fprintf(w, "%s\t%d\t%s\t%s\n", l.ID, l.Port, l.Protocol, l.TargetGroupARN)
 		}
-		return w.Flush()
+		w.Flush()
+
+		if newNextToken != "" {
+			fmt.Printf("\nUse --next-token '%s' to get the next page\n", newNextToken)
+		}
+
+		return nil
 	},
 }
 

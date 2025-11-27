@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
@@ -183,12 +184,12 @@ func (c *Client) waitForLoadBalancerState(ctx context.Context, id string, target
 }
 
 func (c *Client) ListLoadBalancers(ctx context.Context, limit int, nextToken string) ([]LoadBalancer, string, error) {
-	url := fmt.Sprintf("/aws_account/%s/load-balancers?limit=%d", c.accountID, limit)
+	urlPath := fmt.Sprintf("/aws_account/%s/load-balancers?limit=%d", c.accountID, limit)
 	if nextToken != "" {
-		url += fmt.Sprintf("&nextToken=%s", nextToken)
+		urlPath += fmt.Sprintf("&nextToken=%s", url.QueryEscape(nextToken))
 	}
 
-	resp, err := c.sendRequest(ctx, "GET", url, nil)
+	resp, err := c.sendRequest(ctx, "GET", urlPath, nil)
 	if err != nil {
 		return nil, "", err
 	}
